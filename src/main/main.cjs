@@ -293,24 +293,34 @@ const tierBucket = (r) => (r >= 65 ? "savage" : r <= 35 ? "mild" : "medium");
 const cacheKey = (p, dwarfId, roastometer) =>
   `${dwarfId || "?"}:${tierBucket(Number(roastometer) || 50)}:${String(p || "").trim().toLowerCase().slice(0, 300)}`;
 
+// ESM dynamic import needs a file:/// URL — a raw backslash path throws
+// ERR_UNSUPPORTED_ESM_URL_SCHEME, which silently degraded every roast to canned.
+const { pathToFileURL } = require("node:url");
+const importBrain = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
+
 ipcMain.handle("devchaos:roast", async (_e, payload) => {
   try {
     const key = cacheKey(payload?.prompt, payload?.dwarf?.id, payload?.roastometer);
     if (key && roastCache.has(key)) return { ...roastCache.get(key), source: "cache" };
-    const { roast } = await import(path.join(ROOT, "src", "brain", "llm.js"));
+    const { roast } = await importBrain("src/brain/llm.js");
     const result = await roast(config, payload);
     if (result && key) roastCache.set(key, result);
+    console.error(`[roast] served: ${result ? result.source : "null (canned will cover)"}`);
     return result;
-  } catch {
+  } catch (e) {
+    console.error("[roast] FAILED:", e?.message || e); // never silent again
     return null; // canned fallback in renderer
   }
 });
 
 ipcMain.handle("devchaos:ideas", async (_e, payload) => {
   try {
-    const { ideas } = await import(path.join(ROOT, "src", "brain", "llm.js"));
-    return await ideas(config, payload);
-  } catch {
+    const { ideas } = await importBrain("src/brain/llm.js");
+    const res = await ideas(config, payload);
+    console.error(`[ideas] served: ${res ? res.length + " items" : "null (offline fallback will cover)"}`);
+    return res;
+  } catch (e) {
+    console.error("[ideas] FAILED:", e?.message || e);
     return null; // renderer falls back to scorer-built suggestions
   }
 });
@@ -327,8 +337,8 @@ function schedulePrefetch() {
   try {
     prompts = fs.readFileSync(file, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch (e) { console.error("[prefetch] no demo file:", e.message); return; }
-  import(path.join(ROOT, "src", "brain", "llm.js")).then(({ roast }) =>
-    import(path.join(ROOT, "src", "brain", "personalities.js")).then(({ get }) => {
+  importBrain("src/brain/llm.js").then(({ roast }) =>
+    importBrain("src/brain/personalities.js").then(({ get }) => {
       const dwarf = get("grumpy");
       let i = 0;
       for (const p of prompts) {
