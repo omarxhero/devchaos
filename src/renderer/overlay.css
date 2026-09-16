@@ -257,3 +257,9 @@ img { image-rendering: pixelated; }
   background: rgba(0,0,0,0.55); border: 2px solid #666; padding: 4px 10px;
 }
 #listen-chip.on { color: #9dffb0; border-color: #9dffb0; box-shadow: 0 0 10px rgba(157,255,176,0.35); }
+
+#settings-chip {
+  position: fixed; top: 14px; right: 250px; z-index: 80;
+  color: #ffd94a; font-size: 14px; cursor: pointer;
+  background: rgba(0,0,0,0.55); border: 2px solid #666; padding: 2px 9px;
+}

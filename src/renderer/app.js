@@ -65,6 +65,7 @@ async function boot() {
     paintListen(next);
     window.devchaos?.setListening(next);
   };
+  $("settings-chip").onclick = () => window.devchaos?.openSettings?.();
   window.devchaos?.onIdePrompt?.(({ text }) => submitText(text, { source: "ide" }));
   let lastListenAnnounced = null;
   setInterval(async () => {
@@ -199,6 +200,8 @@ async function reactToPrompt(text, source) {
   }
 
   const scored = analyze(finalText);
+  window.__lastPrompt = text;        // Doc "help me" works on the ORIGINAL ask
+  window.__lastScored = scored;
   const roastTier = tierFromRoastometer(scored.tier);
   memory.record(memoryState, {
     text, score: scored.score, tier: scored.tier, dwarf: dwarf.id,
@@ -281,6 +284,14 @@ function quickRefactor(text, scored) {
 function showDocBox(refactored) {
   $("docbox-prompt").textContent = refactored;
   $("docbox").classList.remove("hidden");
+}
+
+function showIdeasBox(ideas) {
+  $("docbox-prompt").innerHTML = ideas
+    .map((x, i) => `<div style="margin:4px 0"><b>${i + 1})</b> ${x.replace(/</g, "&lt;")}</div>`)
+    .join("");
+  $("docbox").classList.remove("hidden");
+  $("docbox-copy").textContent = "COPY FOR YOUR AI";
 }
 
 /* ---------------- triggers ---------------- */
@@ -528,6 +539,28 @@ function wireDialogue() {
     wasSavageZone = savageZone;
   });
   slider.dispatchEvent(new Event("input"));
+
+  // DOC, HELP ME: 3 sharper versions of the last prompt (LLM when keyed,
+  // built from the scorer's own diagnosis when offline).
+  $("doc-help").onclick = async () => {
+    const prompt = window.__lastPrompt, scored = window.__lastScored;
+    if (!prompt) return;
+    openDialogue();
+    chatPush("user", "Doc, help me with: " + prompt.slice(0, 60));
+    chatPush("dwarf", "One moment. Teaching mode.");
+    let ideas = window.devchaos ? await window.devchaos.ideas({ prompt, scored, digest: memory.memoryDigest(memoryState) }) : null;
+    if (!ideas) {
+      const fixes = (scored.issues || []).map((i) => i.fix).slice(0, 3);
+      const base = prompt.trim().replace(/[.!?]+$/, "");
+      ideas = [
+        `${base} — in FILE: <name>, LANGUAGE: <language>`,
+        `${base} — EXPECTED BEHAVIOR: <what should happen exactly>`,
+        `${base} — CONSTRAINT: ${fixes[0] || "<one limit, e.g. no libraries>"}`,
+      ];
+      chatPush("dwarf", "(offline — built from the scorer's diagnosis)");
+    }
+    showIdeasBox(ideas);
+  };
 
   // dual-dispatch bridge: copy the engineered prompt for the user's real AI
   $("docbox-copy").onclick = () => {

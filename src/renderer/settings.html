@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DevChaos Settings</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; background: #14101a; color: #eee; margin: 0; padding: 18px; }
+    h1 { font-size: 17px; letter-spacing: 1px; color: #ffd94a; margin: 0 0 14px; }
+    label { display: block; font-size: 11px; font-weight: bold; color: #9dffb0; margin: 12px 0 4px; letter-spacing: 1px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 8px; background: #0c0a10; color: #fff; border: 2px solid #444; border-radius: 4px; font-size: 13px; }
+    input:focus, select:focus { border-color: #ffd94a; outline: none; }
+    .row { display: flex; gap: 10px; margin-top: 18px; }
+    button { flex: 1; padding: 10px; font-weight: 900; letter-spacing: 1px; cursor: pointer; border: 2px solid #ffd94a; background: #ffd94a; color: #14101a; border-radius: 4px; }
+    button.sec { background: transparent; color: #ffd94a; }
+    #result { margin-top: 14px; font-size: 12px; min-height: 40px; color: #9dffb0; white-space: pre-wrap; }
+    #save-msg { color: #9dffb0; font-size: 12px; margin-top: 8px; min-height: 16px; }
+  </style>
+</head>
+<body>
+  <h1>DEVCHAOS SETTINGS</h1>
+  <label>AI PROVIDER</label>
+  <select id="provider">
+    <option value="gemini">Gemini Flash (free tier)</option>
+    <option value="deepseek">DeepSeek (dirt cheap)</option>
+  </select>
+  <label>API KEY (paste yours — stays on this PC only)</label>
+  <input id="apiKey" type="password" placeholder="paste key here — leave empty to keep current">
+  <label>VOICE</label>
+  <select id="voiceOn"><option value="on">ON — dwarfs speak</option><option value="off">OFF — silent mode</option></select>
+  <label>SFX VOLUME</label>
+  <input id="volume" type="range" min="0" max="1" step="0.05">
+  <div class="row">
+    <button id="save">SAVE</button>
+    <button id="test" class="sec">TEST ROAST</button>
+  </div>
+  <div id="save-msg"></div>
+  <div id="result"></div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let savedKey = "";
+    window.devchaos.getConfig().then((c) => {
+      $("provider").value = c.provider || "gemini";
+      $("voiceOn").value = c.voiceOn === false ? "off" : "on";
+      $("volume").value = typeof c.volume === "number" ? c.volume : 0.7;
+      savedKey = c.apiKey === "SET" ? "•••••••• (saved)" : "";
+      if (savedKey) { $("apiKey").placeholder = "key already saved — type to replace"; }
+    });
+    $("save").onclick = async () => {
+      const patch = { provider: $("provider").value, voiceOn: $("voiceOn").value === "on", volume: Number($("volume").value) };
+      const key = $("apiKey").value.trim();
+      if (key) patch.apiKey = key; // empty = keep existing (main ignores empty)
+      await window.devchaos.setConfig(patch);
+      $("save-msg").textContent = "Saved ✓ " + (key ? "new key stored." : (savedKey ? "existing key kept." : "no key yet — roasts stay canned."));
+    };
+    $("test").onclick = async () => {
+      $("result").textContent = "asking the AI…";
+      const res = await window.devchaos.roast({
+        prompt: "fix it",
+        scored: { score: 2, label: "PURE LAZINESS", issues: [] },
+        dwarf: { id: "grumpy", name: "Grumpy", job: "THE ROASTER", system: "You are Grumpy, a brutally funny senior dev. Roast in max 2 short sentences." },
+        roastometer: 80, digest: {},
+      });
+      $("result").textContent = res
+        ? (res.source === "llm" ? "LIVE LLM ✓\n" + res.roast : res.source === "cache" ? "FROM CACHE ✓\n" + res.roast : "? " + JSON.stringify(res))
+        : "CANNED (no key / offline) — the app still works, roasts just repeat.";
+    };
+  </script>
+</body>
+</html>

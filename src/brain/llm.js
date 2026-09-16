@@ -108,4 +108,33 @@ async function roast(config, { prompt, scored, dwarf, roastometer, digest }) {
   }
 }
 
-export { roast };
+// Doc ideas: 3 sharper versions of the user's last prompt (teaching moment).
+async function ideas(config, { prompt, scored, digest }) {
+  const provider = PROVIDERS[config.provider] || PROVIDERS.gemini;
+  if (!config.apiKey) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const system = "You are Doc, a patient prompt-engineering teacher inside a fun desktop app. Given a weak prompt, return 3 sharper rewritten versions: 1) names the target file/context, 2) states the expected behavior, 3) adds one constraint. Keep each under 30 words. Be kind.";
+  const user = `WEAK PROMPT: """${prompt}"""
+Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).map((i) => i.type).join(", ") || "vague"}.`;
+  try {
+    const body = provider.buildBody(
+      system, user,
+      config.provider === "gemini" ? { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" } } }, required: ["ideas"] } : null,
+    );
+    if (config.provider !== "gemini") body.messages[1] = { role: "user", content: user + '\nRespond ONLY with JSON: {"ideas": [3 strings]}' };
+    const res = await fetch(provider.url(config.model || "gemini-2.0-flash", config.apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const parsed = provider.parse(await res.json());
+    const list = (parsed?.ideas || []).filter((x) => typeof x === "string" && x.trim()).slice(0, 3);
+    return list.length ? list.map((x) => x.trim()) : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
+export { roast, ideas };
+

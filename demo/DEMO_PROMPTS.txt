@@ -1,0 +1,6 @@
+# One prompt per line. The dwarf pre-roasts these in demo mode (needs an API key).
+hi now we will work on big project
+fix it
+make it work please
+hello can you help me with my code
+write me a sorting algorithm

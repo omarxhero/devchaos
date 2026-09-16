@@ -7,6 +7,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("devchaos", {
   passthrough: (enabled) => ipcRenderer.send("devchaos:passthrough", enabled),
   setListening: (on) => ipcRenderer.send("devchaos:set-listening", on),
+  openSettings: () => ipcRenderer.send("devchaos:open-settings"),
   getListening: () => ipcRenderer.invoke("devchaos:get-listening"),
   breakRequest: () => ipcRenderer.send("devchaos:break-request"),
   breakFinished: () => ipcRenderer.send("devchaos:break-finished"),
@@ -16,6 +17,7 @@ contextBridge.exposeInMainWorld("devchaos", {
   sessionGet: () => ipcRenderer.invoke("devchaos:session-get"),
   sessionSet: (state) => ipcRenderer.invoke("devchaos:session-set", state),
   roast: (payload) => ipcRenderer.invoke("devchaos:roast", payload),
+  ideas: (payload) => ipcRenderer.invoke("devchaos:ideas", payload),
   recordPrompt: (entry) => ipcRenderer.invoke("devchaos:record-prompt", entry),
   // All subscriptions unwrap the IPC event: the payload is arg #2.
   onBreakStarted: (cb) => ipcRenderer.on("devchaos:break-started", (_e, p) => cb(p)),

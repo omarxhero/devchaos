@@ -240,6 +240,7 @@ function rebuildTrayMenu() {
     { label: "Hide dwarfs", click: () => overlay?.hide() },
     { type: "separator" },
     { label: `Summon black hole${config.demo ? " (demo timings)" : ""}`, click: () => overlay?.webContents.send("devchaos:hole-run") },
+    { label: "⚙ Settings (API key, voice)", click: () => openSettings() },
     { label: `\u{1F3A7} Listen to IDE: ${listening ? "ON" : "OFF"}`, type: "checkbox", checked: listening, click: () => setListening(!listening) },
     { label: `Demo mode: ${config.demo ? "ON" : "OFF"}`, click: () => { config.demo = !config.demo; saveConfig(); rebuildTrayMenu(); } },
     { type: "separator" },
@@ -282,14 +283,73 @@ ipcMain.handle("devchaos:session-get", () => sessionState);
 ipcMain.handle("devchaos:session-set", (_e, state) => { saveSession(state); return { ok: true }; });
 
 // LLM roast runs in MAIN — the API key never crosses into any renderer.
+// Roast cache: demo pre-fetch + session repeats answer instantly (RAM, keyed
+// by normalized prompt). Never persisted — canned covers anything missing.
+const roastCache = new Map();
+const cacheKey = (t) => String(t || "").trim().toLowerCase().slice(0, 300);
+
 ipcMain.handle("devchaos:roast", async (_e, payload) => {
   try {
+    const key = cacheKey(payload?.prompt);
+    if (key && roastCache.has(key)) return { ...roastCache.get(key), source: "cache" };
     const { roast } = await import(path.join(ROOT, "src", "brain", "llm.js"));
-    return await roast(config, payload);
+    const result = await roast(config, payload);
+    if (result && key) roastCache.set(key, result);
+    return result;
   } catch {
     return null; // canned fallback in renderer
   }
 });
+
+ipcMain.handle("devchaos:ideas", async (_e, payload) => {
+  try {
+    const { ideas } = await import(path.join(ROOT, "src", "brain", "llm.js"));
+    return await ideas(config, payload);
+  } catch {
+    return null; // renderer falls back to scorer-built suggestions
+  }
+});
+
+// Demo pre-fetch: quietly roast the scripted beats at boot so the stage never waits.
+if (config.demo && config.apiKey) {
+  setTimeout(async () => {
+    const file = path.join(ROOT, "demo", "DEMO_PROMPTS.txt");
+    try {
+      const prompts = fs.readFileSync(file, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+      const { roast } = await import(path.join(ROOT, "src", "brain", "llm.js"));
+      const { get } = await import(path.join(ROOT, "src", "brain", "personalities.js"));
+      const dwarf = get("grumpy");
+      for (const p of prompts) {
+        const key = cacheKey(p);
+        if (roastCache.has(key)) continue;
+        console.error(`[prefetch] ${p.slice(0, 40)}`);
+        roast(config, {
+          prompt: p,
+          scored: { score: 3, label: "SPAGHETTI THOUGHT", issues: [] },
+          dwarf, roastometer: 70, digest: {},
+        }).then((r) => { if (r) { roastCache.set(key, r); console.error("[prefetch] cached:", p.slice(0, 40)); } }).catch(() => {});
+      }
+    } catch (e) { console.error("[prefetch] failed:", e.message); }
+  }, 3000);
+}
+
+let settingsWin = null;
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) return settingsWin.focus();
+  settingsWin = new BrowserWindow({
+    width: 420, height: 620, resizable: false,
+    title: "DevChaos Settings", backgroundColor: "#14101a",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true, nodeIntegration: false, sandbox: false,
+    },
+  });
+  settingsWin.setMenuBarVisibility(false);
+  settingsWin.loadFile(path.join(ROOT, "src", "renderer", "settings.html"));
+  settingsWin.on("closed", () => { settingsWin = null; });
+}
+
+ipcMain.on("devchaos:open-settings", () => openSettings());
 
 ipcMain.on("devchaos:active-dwarf", (_e, id) => {
   if (!sessionState) sessionState = {};
