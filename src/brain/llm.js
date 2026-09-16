@@ -86,7 +86,7 @@ async function roast(config, { prompt, scored, dwarf, roastometer, digest }) {
       buildUserMessage({ prompt, scored, dwarf, roastometer, digest }),
       config.provider === "gemini" ? RESPONSE_SCHEMA : null,
     );
-    const res = await fetch(provider.url(config.model || "gemini-2.0-flash", config.apiKey), {
+    const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
       body: JSON.stringify(body),
@@ -123,7 +123,7 @@ Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).
       config.provider === "gemini" ? { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" } } }, required: ["ideas"] } : null,
     );
     if (config.provider !== "gemini") body.messages[1] = { role: "user", content: user + '\nRespond ONLY with JSON: {"ideas": [3 strings]}' };
-    const res = await fetch(provider.url(config.model || "gemini-2.0-flash", config.apiKey), {
+    const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
       body: JSON.stringify(body),

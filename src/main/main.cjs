@@ -21,7 +21,7 @@ const SESSION_PATH = path.join(DATA_DIR, "session.json");
 
 const DEFAULT_CONFIG = {
   provider: "gemini",
-  model: "gemini-2.0-flash",
+  model: "gemini-3.6-flash",
   apiKey: "",
   breakMinutes: 25,
   volume: 0.7,
