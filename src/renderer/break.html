@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SLEEP. NOW.</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Courier New", Consolas, monospace; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; user-select: none; }
+    img { image-rendering: pixelated; }
+    #capture { display: none; }
+    #blackhole { position: fixed; inset: 0; width: 100%; height: 100%; }
+
+    #sleepy { position: fixed; bottom: 40px; width: 130px; height: 150px; z-index: 10;
+      transition: left 2.4s linear; }
+    #sleepy img, #sleepy .placeholder-hat { width: 100%; height: 100%; }
+
+    #bbubble {
+      position: fixed; z-index: 11; background: #fffbe8; border: 4px solid #1a1a1a;
+      border-radius: 10px; padding: 10px 16px; font-size: 20px; font-weight: bold; color: #1a1a1a;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.5); display: none;
+    }
+
+    #sacrifice { position: fixed; width: 110px; height: 130px; z-index: 9; }
+
+    #lock { position: fixed; inset: 0; background: #000; z-index: 20; display: none;
+      align-items: center; justify-content: center; flex-direction: column; color: #ffd94a; }
+    #lock-title { font-size: 72px; font-weight: 900; letter-spacing: 6px; text-shadow: 5px 5px 0 #5a3a00; }
+    #lock-count { font-size: 130px; font-weight: 900; margin-top: 24px; color: #fff; }
+    #lock-sub { font-size: 18px; color: #8a7a3a; margin-top: 18px; }
+
+    #skip { position: fixed; top: 0; left: 0; width: 120px; height: 90px; z-index: 99; cursor: default; }
+    #victory { position: fixed; inset: 0; background: #000; z-index: 30; display: none;
+      align-items: center; justify-content: center; flex-direction: column; color: #9dffb0; }
+    #victory .big { font-size: 54px; font-weight: 900; }
+    #victory .small { font-size: 20px; color: #ffd94a; margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <video id="capture" autoplay muted playsinline></video>
+  <canvas id="blackhole"></canvas>
+  <div id="sacrifice"></div>
+  <div id="sleepy"></div>
+  <div id="bbubble"></div>
+  <div id="lock"><div id="lock-title">SLEEP. NOW.</div><div id="lock-count"></div><div id="lock-sub">the dwarfs will return when you deserve them</div></div>
+  <div id="victory"><div class="big">THE VOID IS SATISFIED</div><div class="small">break complete. go drink water.</div></div>
+  <div id="skip"></div>
+
+  <script type="module" src="../audio/voice.js"></script>
+  <script type="module" src="../audio/sfx.js"></script>
+  <script type="module" src="break.js"></script>
+</body>
+</html>

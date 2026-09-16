@@ -1,0 +1,111 @@
+// LLM adapter: Gemini Flash primary (native JSON mode), DeepSeek backup.
+// 5s timeout, straight fallback — no retry theater. Caller falls back to canned.
+
+"use strict";
+
+const TIMEOUT_MS = 5000;
+
+const PROVIDERS = {
+  gemini: {
+    url: (model, key) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    buildBody: (system, user, jsonSchema) => ({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: {
+        temperature: 1.0,
+        response_mime_type: "application/json",
+        ...(jsonSchema ? { response_schema: jsonSchema } : {}),
+      },
+    }),
+    parse: (data) => {
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      return text ? JSON.parse(text) : null;
+    },
+  },
+  deepseek: {
+    url: () => "https://api.deepseek.com/chat/completions",
+    buildBody: (system, user, jsonSchema) => ({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: system + '\nRespond ONLY with JSON matching: {"roast": string (max 2 short sentences), "refactored_prompt": string, "label": string}' },
+        { role: "user", content: user },
+      ],
+      temperature: 1.0,
+      response_format: { type: "json_object" },
+    }),
+    parse: (data) => {
+      const text = data?.choices?.[0]?.message?.content;
+      return text ? JSON.parse(text) : null;
+    },
+  },
+};
+
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    roast: { type: "STRING" },
+    refactored_prompt: { type: "STRING" },
+    label: { type: "STRING" },
+  },
+  required: ["roast", "refactored_prompt"],
+};
+
+function buildUserMessage({ prompt, scored, dwarf, roastometer, digest }) {
+  const intensity =
+    roastometer >= 85 ? "MAXIMUM SAVAGE (100/100): no mercy, pure comedic destruction" :
+    roastometer >= 60 ? `savage (${roastometer}/100): sharp, cutting, brutal wit` :
+    roastometer >= 40 ? `balanced (${roastometer}/100): honest with a bite` :
+    roastometer >= 15 ? `gentle (${roastometer}/100): kind, constructive, soft` :
+    `WHOLESALE GRANDMA MODE (0-14/100): maximum kindness, almost useless levels of nice`;
+
+  const memory = digest?.count
+    ? `\nSession memory: ${digest.count} prompts so far, ${digest.fixItCount} were some variant of "fix it", worst score ${digest.worstScore}/10, avg ${digest.avg}.`
+    : "\nThis is the user's first prompt today.";
+
+  return `PROMPT TO REVIEW (from a ${dwarf.name} viewpoint — you ARE ${dwarf.name}, ${dwarf.job}):
+"""
+${prompt}
+"""
+
+Machine-graded: ${scored.score}/10 (${scored.label}). Issues: ${scored.issues.map((i) => i.type).join(", ") || "none"}.
+Roast intensity setting: ${intensity}.${memory}
+
+Reply as JSON: {"roast": "<in-character line, max 2 short sentences>", "refactored_prompt": "<the properly engineered version of their prompt>", "label": "<3-word max verdict>"}.
+The roast MUST be in ${dwarf.name}'s voice. The refactored_prompt must be genuinely usable — that part is real teaching.`;
+}
+
+async function roast(config, { prompt, scored, dwarf, roastometer, digest }) {
+  const provider = PROVIDERS[config.provider] || PROVIDERS.gemini;
+  if (!config.apiKey) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const body = provider.buildBody(
+      dwarf.system,
+      buildUserMessage({ prompt, scored, dwarf, roastometer, digest }),
+      config.provider === "gemini" ? RESPONSE_SCHEMA : null,
+    );
+    const res = await fetch(provider.url(config.model || "gemini-2.0-flash", config.apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const parsed = provider.parse(await res.json());
+    if (!parsed || typeof parsed.roast !== "string" || !parsed.roast.trim()) return null;
+    return {
+      roast: parsed.roast.trim().slice(0, 300),
+      refactored: (parsed.refactored_prompt || "").trim().slice(0, 800),
+      label: (parsed.label || "").trim().slice(0, 40),
+      source: "llm",
+    };
+  } catch {
+    return null; // timeout / network / parse — canned takes over
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export { roast };

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DevChaos</title>
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <!-- The one and only dwarf -->
+  <div id="dwarf"></div>
+
+  <!-- THE BLACK HOLE — lives in the overlay over the real work (like the dwarf):
+       transparent everywhere except the lensed region; grows toward the deadline. -->
+  <canvas id="hole"></canvas>
+  <video id="holevid" autoplay muted playsinline></video>
+
+  <!-- Flavour quip bubble above dwarf's head (short lines only) -->
+  <div id="bubble" class="hidden"><span id="bubble-text"></span></div>
+
+  <!-- ============ DRAGGABLE DIALOGUE PANEL (the dwarf conversation home) ============ -->
+  <div id="dialogue" class="island">
+    <div id="dialogue-drag">
+      <span id="dialogue-title">GRUMPY — THE ROASTER</span>
+      <span id="dialogue-dwarf-mini"></span>
+      <button id="dialogue-close" title="hide panel (dwarfs stay)">&#10005;</button>
+    </div>
+
+    <div id="chat"></div>
+
+    <div id="docbox" class="hidden">
+      <div class="docbox-head">DOC SAYS TRY: <button id="docbox-copy" class="pxbtn small">COPY FOR YOUR AI</button></div>
+      <div id="docbox-prompt"></div>
+    </div>
+
+    <div id="dialogue-input-row">
+      <input id="prompt" type="text" placeholder="ask your AI anything — the dwarf is listening..." autocomplete="off" spellcheck="false">
+      <button id="submit" class="pxbtn">SEND</button>
+    </div>
+
+    <div id="dialogue-controls">
+      <span class="roast-label">SAVAGE</span>
+      <input id="roastometer" type="range" min="0" max="100" value="50">
+      <span class="roast-label">WHOLESOME</span>
+      <span id="roast-caption">balanced</span>
+      <span id="mood-wrap" title="his health is YOUR responsibility">&#9829; <span id="mood-bar"><span id="mood-fill"></span></span></span>
+    </div>
+  </div>
+
+  <!-- Dwarf summoner (7 hats) -->
+  <div id="hats" class="island"></div>
+
+  <!-- Leaderboard of Shame -->
+  <div id="leaderboard" class="hidden island">
+    <div class="lb-title">LEADERBOARD OF SHAME</div>
+    <div id="lb-rows"></div>
+  </div>
+
+  <!-- Deadline chip + IDE listening toggle -->
+  <div id="break-chip" class="island" title="click to summon the black hole now">&#9760; <span id="break-count"></span></div>
+  <div id="listen-chip" class="island" title="toggle: hear what I type to my IDE AI">&#127911; <span id="listen-label">IDE: OFF</span></div>
+
+  <script type="module" src="../audio/voice.js"></script>
+  <script type="module" src="../audio/sfx.js"></script>
+  <script type="module" src="dwarf.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # tests are pure JS — skip electron's binary download
+      - run: npm ci --ignore-scripts
+      - run: node src/main/gates.cjs
+      - run: npm test

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DevChaos Standalone Black Hole</title>
+    <link rel="stylesheet" href="./desktop.css" />
+  </head>
+  <body>
+    <canvas id="blackhole" aria-label="Black hole standalone test"></canvas>
+    <video id="capture" autoplay muted playsinline></video>
+
+    <section class="panel" aria-label="Standalone controls">
+      <div class="title-row">
+        <div>
+          <p class="kicker" id="hostLabel">DevChaos standalone</p>
+          <h1>Black Hole Test Rig</h1>
+        </div>
+        <strong id="status">Idle</strong>
+      </div>
+
+      <div class="meter" aria-hidden="true">
+        <span id="meterFill"></span>
+      </div>
+
+      <div class="readouts">
+        <div>
+          <span>Intensity</span>
+          <strong id="intensityLabel">0%</strong>
+        </div>
+        <div>
+          <span>Elapsed</span>
+          <strong id="elapsedLabel">00:00</strong>
+        </div>
+        <div>
+          <span>FPS</span>
+          <strong id="fpsLabel">--</strong>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="captureButton" type="button">Start Capture</button>
+        <button id="passthroughButton" type="button" class="secondary">Pass Through</button>
+        <button id="resetButton" type="button" class="secondary">Reset</button>
+      </div>
+
+      <label class="field">
+        <span>Cycle length</span>
+        <input id="thresholdInput" type="range" min="4" max="90" value="16" />
+        <strong id="thresholdLabel">16 s</strong>
+      </label>
+
+      <label class="field">
+        <span>Demo speed</span>
+        <select id="speedInput">
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="5">5x</option>
+          <option value="10">10x</option>
+          <option value="30">30x</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Visual strength</span>
+        <input id="strengthInput" type="range" min="0.35" max="1.35" step="0.01" value="1" />
+        <strong id="strengthLabel">1.00x</strong>
+      </label>
+
+      <label class="field">
+        <span>Max area</span>
+        <input id="areaInput" type="range" min="0.08" max="0.50" step="0.01" value="0.30" />
+        <strong id="areaLabel">0.30</strong>
+      </label>
+
+      <label class="field">
+        <span>Corner seed (like demo.gif)</span>
+        <input id="homeInput" type="checkbox" checked />
+      </label>
+
+      <p class="hint">
+        Cycle = grow then recede. Ctrl+Alt+B click-through, Ctrl+Alt+Q quit. windowBH.area(n) / windowBH.cycle(n) from devtools.
+      </p>
+    </section>
+
+    <script type="module" src="./desktop-renderer.js"></script>
+  </body>
+</html>
