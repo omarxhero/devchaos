@@ -1,9 +1,11 @@
 // LLM adapter: Gemini Flash primary (native JSON mode), DeepSeek backup.
-// 5s timeout, straight fallback — no retry theater. Caller falls back to canned.
+// Timeout, straight fallback — no retry theater. Caller falls back to canned.
+// 12s: gemini-3.6-flash TTFB measured 4.7-5.0s on this machine (Sep 16 2026) —
+// the old 5s abort killed live roasts at the wire, every single time.
 
 "use strict";
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 12000;
 
 const PROVIDERS = {
   gemini: {
