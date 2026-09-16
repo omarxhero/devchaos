@@ -268,6 +268,7 @@ ipcMain.handle("devchaos:set-config", (_e, patch) => {
   Object.assign(config, rest);
   if (typeof apiKey === "string" && apiKey !== "SET" && apiKey.length > 0) config.apiKey = apiKey;
   saveConfig();
+  if (config.demo && config.apiKey) schedulePrefetch(); // key just arrived — pre-warm without restart
   return { ok: true };
 });
 
@@ -283,14 +284,18 @@ ipcMain.handle("devchaos:session-get", () => sessionState);
 ipcMain.handle("devchaos:session-set", (_e, state) => { saveSession(state); return { ok: true }; });
 
 // LLM roast runs in MAIN — the API key never crosses into any renderer.
-// Roast cache: demo pre-fetch + session repeats answer instantly (RAM, keyed
-// by normalized prompt). Never persisted — canned covers anything missing.
+// Roast cache: demo pre-fetch + session repeats answer instantly (RAM). Never
+// persisted — canned covers anything missing. Key = dwarf + savage-tier +
+// prompt: the Roastometer theater beat (same prompt re-roasted at MAXIMUM)
+// must roast FRESH, and a Grumpy line must never answer for another dwarf.
 const roastCache = new Map();
-const cacheKey = (t) => String(t || "").trim().toLowerCase().slice(0, 300);
+const tierBucket = (r) => (r >= 65 ? "savage" : r <= 35 ? "mild" : "medium");
+const cacheKey = (p, dwarfId, roastometer) =>
+  `${dwarfId || "?"}:${tierBucket(Number(roastometer) || 50)}:${String(p || "").trim().toLowerCase().slice(0, 300)}`;
 
 ipcMain.handle("devchaos:roast", async (_e, payload) => {
   try {
-    const key = cacheKey(payload?.prompt);
+    const key = cacheKey(payload?.prompt, payload?.dwarf?.id, payload?.roastometer);
     if (key && roastCache.has(key)) return { ...roastCache.get(key), source: "cache" };
     const { roast } = await import(path.join(ROOT, "src", "brain", "llm.js"));
     const result = await roast(config, payload);
@@ -310,28 +315,39 @@ ipcMain.handle("devchaos:ideas", async (_e, payload) => {
   }
 });
 
-// Demo pre-fetch: quietly roast the scripted beats at boot so the stage never waits.
-if (config.demo && config.apiKey) {
-  setTimeout(async () => {
-    const file = path.join(ROOT, "demo", "DEMO_PROMPTS.txt");
-    try {
-      const prompts = fs.readFileSync(file, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-      const { roast } = await import(path.join(ROOT, "src", "brain", "llm.js"));
-      const { get } = await import(path.join(ROOT, "src", "brain", "personalities.js"));
+// Demo pre-fetch: quietly roast the scripted beats so the stage never waits.
+// Seeds BOTH delivery tiers per prompt (medium for the first ask, savage for
+// the MAXIMUM re-roast), staggered to stay under free-tier rate limits.
+// Grumpy is the seeded voice (demo default); other dwarfs roast live once,
+// then cache. Re-run after a key is saved — no restart needed.
+function schedulePrefetch() {
+  if (!config.demo || !config.apiKey) return;
+  const file = path.join(ROOT, "demo", "DEMO_PROMPTS.txt");
+  let prompts;
+  try {
+    prompts = fs.readFileSync(file, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  } catch (e) { console.error("[prefetch] no demo file:", e.message); return; }
+  import(path.join(ROOT, "src", "brain", "llm.js")).then(({ roast }) =>
+    import(path.join(ROOT, "src", "brain", "personalities.js")).then(({ get }) => {
       const dwarf = get("grumpy");
+      let i = 0;
       for (const p of prompts) {
-        const key = cacheKey(p);
-        if (roastCache.has(key)) continue;
-        console.error(`[prefetch] ${p.slice(0, 40)}`);
-        roast(config, {
-          prompt: p,
-          scored: { score: 3, label: "SPAGHETTI THOUGHT", issues: [] },
-          dwarf, roastometer: 70, digest: {},
-        }).then((r) => { if (r) { roastCache.set(key, r); console.error("[prefetch] cached:", p.slice(0, 40)); } }).catch(() => {});
+        for (const ro of [50, 85]) { // medium + savage buckets
+          const key = cacheKey(p, dwarf.id, ro);
+          if (roastCache.has(key)) continue;
+          setTimeout(() => {
+            roast(config, {
+              prompt: p,
+              scored: { score: 3, label: "SPAGHETTI THOUGHT", issues: [] },
+              dwarf, roastometer: ro, digest: {},
+            }).then((r) => { if (r) { roastCache.set(key, r); console.error("[prefetch] cached:", dwarf.id, tierBucket(ro), p.slice(0, 40)); } }).catch(() => {});
+          }, i++ * 700);
+        }
       }
-    } catch (e) { console.error("[prefetch] failed:", e.message); }
-  }, 3000);
+    })
+  ).catch((e) => console.error("[prefetch] failed:", e.message));
 }
+if (config.demo && config.apiKey) setTimeout(schedulePrefetch, 3000);
 
 let settingsWin = null;
 function openSettings() {
