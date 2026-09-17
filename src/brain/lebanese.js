@@ -13,50 +13,52 @@ const PHRASES = {
   thanks: { id: "leb-cs-002", text: "Merci ktir", meaning: "Thanks a lot", arabic: "مرسي كتير" },
 };
 
-const LEBANESE_GUIDE = `Lebanese spice (optional, never replace your dwarf identity):
-Keep the roast mostly English so the joke lands for everyone. At most ONE short Arabizi phrase, only when it fits; plain English is fine. Do not stack greetings or translate every sentence. Vocabulary:
-${Object.values(PHRASES).map((p) => `${p.text} = ${p.meaning}`).join("; ")}.
-Arabizi is informal and spelling varies: 3 represents ع and 7 represents ح. Do not invent phonetic spellings. English dev terms like prompt, bug and deadline stay English.
-Keep each character distinct: Doc teaches; Grumpy reluctantly approves or grumbles; Happy celebrates with ironic praise at high intensity; Sleepy trails off; Sneezy panics at his own mess; Bashful apologizes; Dopey misunderstands, never attacks.
-Low intensity: reassurance, not sarcasm. Medium: playful exasperation. High: sharp jokes about missing context or vague instructions, NOT personal worth, identity or ability. Do not invent a different machine score. No slurs, nationality/sect jokes, tragedy/crisis jokes, family insults or romantic endearments.
-Keep refactored_prompt useful and free of decorative dialect. Preserve supplied facts; use explicit [placeholders] for missing files or requirements rather than pretending to know them. This guide changes delivery, not the score or JSON schema.`;
+const LEBANESE_GUIDE = `Dialogue language: Lebanese Arabizi.
+Write the ENTIRE roast and label in natural spoken Lebanese Arabic using Latin letters, even when the user's prompt is English. This language rule also applies to examples in the character description: adapt their meaning, do not repeat their English wording. No Arabic script, translations or English sentences decorated with a greeting. Use Lebanese sentence structure, not formal Arabic or another dialect.
+Write like friends texting: shu, hayda, baddak, ma fi, 3am, ktir, heik, khallina. Use 3 for ع, 7 for ح and 2 for the glottal stop where natural; do not force numbers into every word. Technical terms (code, bug, prompt, error, file) can stay English. Vary openings; no greeting or habibi required every time.
+Adapted style examples, not lines to repeat:
+Grumpy: Ya 3amme, 'fix it' shu? Ana lezem khammen? Farjine l-code w elle shu l-error!
+Happy: Kelmeten bass? Yalla, bidaye mni7a! Zid shwayyet details w menzabeta!
+Doc: Tayyeb, khallina nwaddi7a: shu l-matloob, shu 3am bisir, w shu lezim ysir?
+Keep your dwarf identity: Doc teaches; Grumpy grumbles; Happy hypes; Sleepy trails off; Sneezy panics at his own mess; Bashful apologizes; Dopey misunderstands. Low intensity reassures, high intensity jokes about the prompt, never personal worth. Use ONLY the supplied machine score if mentioning a grade. No slurs, family insults, nationality/sect or tragedy/crisis jokes.
+The refactored_prompt is a copy-ready technical prompt in clean English, NOT character dialogue. Preserve supplied facts; use explicit [placeholders] for unknown files or requirements. Never invent project facts. Keep the JSON schema unchanged.`;
 
 const line = (phrase, text) => ({ phrase, text });
 const LEBANESE_BANK = {
   doc: {
-    mild: [line("easy", "Basita. One concrete example makes the task easier to teach.")],
-    medium: [line("yalla", "Yalla, name the target. A good prompt gives the reader a map.")],
-    savage: [line("really", "3anjad? Even a blank exam has a field for the subject.")],
+    mild: [line("easy", "Basita. Example wa7ad w byesir l-matloob awda7.")],
+    medium: [line("yalla", "Yalla, sammi l-file w elle shu lezim ysir.")],
+    savage: [line("really", "3anjad? 7atta wara2et l-emtihan fiya 3enwen.")],
   },
   grumpy: {
-    mild: [line("shrug", "Ya3ne... I can work with this. Don't make me repeat the compliment.")],
-    medium: [line("sigh", "Ya 3amme, 'it' is doing all the work in this prompt.")],
-    savage: [line("enough", "Khalas. The rubber duck filed a complaint about missing context.")],
+    mild: [line("shrug", "Ya3ne... mashi l-7al. Ma tkhalline 3ida.")],
+    medium: [line("sigh", "Ya 3amme, kelmet 'it' shayle kel l-shoghol la7ala.")],
+    savage: [line("enough", "Khalas. L-rubber duck fall yfattesh 3a context.")],
   },
   happy: {
-    mild: [line("bravo", "Bravo 3alayk! A prompt worth cheering for!")],
-    medium: [line("yalla", "Yalla! We have WORDS! Next achievement: SPECIFICS!")],
-    savage: [line("bravo", "Bravo 3alayk! So much confidence, so little specification!")],
+    mild: [line("bravo", "Bravo 3alayk! Hayda prompt byestahel za2fe!")],
+    medium: [line("yalla", "Yalla! Sar fi kelmet! Halla2 badna DETAILS!")],
+    savage: [line("bravo", "Bravo 3alayk! Thi2a ktir, requirements shway!")],
   },
   sleepy: {
-    mild: [line("enough", "Khalas... good work... let your eyes rest too...")],
-    medium: [line("shrug", "Ya3ne... the prompt needs context... I need a pillow...")],
-    savage: [line("really", "3anjad... even my dreams have clearer requirements...")],
+    mild: [line("enough", "Khalas... shoghol mni7... rayye7 3younak...")],
+    medium: [line("shrug", "Ya3ne... l-prompt baddo context... w ana mkhadde...")],
+    savage: [line("really", "3anjad... 7atta a7leme fiya details aktar...")],
   },
   sneezy: {
-    mild: [line("okay", "Ma3lesh, ACHOO! Your prompt survived me!")],
-    medium: [line("sigh", "Ya 3amme, ACHOO! I scattered the letters... sorry about the mess!")],
-    savage: [line("enough", "Khalas! ACHOO! I sneezed out more detail than this prompt contains!")],
+    mild: [line("okay", "Ma3lesh, ACHOO! L-prompt ba3do 3eyish!")],
+    medium: [line("sigh", "Ya 3amme, ACHOO! Ba3tart l-7rouf... min byelmon?")],
+    savage: [line("enough", "Khalas! ACHOO! L-3atse fiya details aktar men l-prompt!")],
   },
   bashful: {
-    mild: [line("thanks", "Merci ktir... for the context... it helps. Sorry, was that too loud?")],
-    medium: [line("okay", "Ma3lesh... could we add one example? A tiny one? Sorry...")],
-    savage: [line("really", "3anjad... the requirements are playing hide-and-seek... sorry, they're winning...")],
+    mild: [line("thanks", "Merci ktir... l-context se3adne... 3allit sawte?")],
+    medium: [line("okay", "Ma3lesh... fina nzid example zghir? Eza ma fi iz3aj...")],
+    savage: [line("really", "3anjad... l-requirements 3am yel3abo ghommeyda... w reb7o...")],
   },
   dopey: {
-    mild: [line("yalla", "Yalla! I brought my thinking hat! It has snacks in it!")],
-    medium: [line("easy", "Basita! I put the bug in a jar! Why is the code still broken?")],
-    savage: [line("enough", "Khalas! I deleted the word 'bug'! We're finished! ...Right?")],
+    mild: [line("yalla", "Yalla! Jebet ta2iyyet l-tafkir! Fiya snacks!")],
+    medium: [line("easy", "Basita! 7attet l-bug b maratben! Leh l-code ba3do mkassar?")],
+    savage: [line("enough", "Khalas! Mse7et kelmet 'bug'! Khlesna! ...Sa7?")],
   },
 };
 

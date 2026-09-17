@@ -25,7 +25,8 @@ const DEFAULT_CONFIG = {
   provider: "gemini",
   model: "gemini-3.6-flash",
   apiKey: "",
-  breakMinutes: 25,
+  breakMinutes: 180,
+  breakDurationMinutes: 30,
   volume: 0.7,
   voiceOn: true,
   demo: demoMode,
@@ -237,7 +238,7 @@ function createBreakWindow() {
   // would show this very window (recursion = black background). Pattern from blackhole-timer.
   breakWin.setContentProtection(true);
   breakWin.loadFile(path.join(ROOT, "src", "renderer", "break.html"),
-    { search: `growSec=${config.demo ? 8 : 180}&recedeSec=${config.demo ? 12 : 30}&dwarf=${currentDwarfForBreak()}` });
+    { search: `growSec=${config.demo ? 10 : (config.breakDurationMinutes ?? 30) * 30}&recedeSec=${config.demo ? 10 : (config.breakDurationMinutes ?? 30) * 30}&dwarf=${currentDwarfForBreak()}` });
   breakWin.once("ready-to-show", () => {
     breakWin.show();
     overlay?.hide(); // keep captured texture = clean desktop (no frozen dwarf in the warp)
@@ -349,6 +350,13 @@ ipcMain.handle("devchaos:roast", async (_e, payload) => {
     console.error("[roast] failed (details omitted)");
     return null;
   }
+});
+
+ipcMain.handle("devchaos:chat", async (_e, payload) => {
+  try {
+    const { chat } = await importBrain("src/brain/llm.js");
+    return await chat(config, payload);
+  } catch { return null; }
 });
 
 ipcMain.handle("devchaos:ideas", async (_e, payload) => {

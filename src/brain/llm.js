@@ -6,6 +6,7 @@
 "use strict";
 
 import { LEBANESE_GUIDE } from "./lebanese.js";
+import { conversationPayload, conversationSystem } from "./conversation.js";
 
 const TIMEOUT_MS = 12000;
 
@@ -42,6 +43,15 @@ const PROVIDERS = {
       return text ? JSON.parse(text) : null;
     },
   },
+};
+
+PROVIDERS.openrouter = {
+  ...PROVIDERS.deepseek,
+  url: () => "https://openrouter.ai/api/v1/chat/completions",
+  buildBody: (system, user, jsonSchema, model) => ({
+    ...PROVIDERS.deepseek.buildBody(system, user, jsonSchema),
+    model: model || "deepseek/deepseek-v4.1-flash",
+  }),
 };
 
 const RESPONSE_SCHEMA = {
@@ -88,11 +98,11 @@ async function roast(config, { prompt, scored, dwarf, roastometer, digest }) {
     const body = provider.buildBody(
       `${dwarf.system}\n\n${LEBANESE_GUIDE}`,
       buildUserMessage({ prompt, scored, dwarf, roastometer, digest }),
-      RESPONSE_SCHEMA,
+      RESPONSE_SCHEMA, config.model,
     );
     const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+      headers: { "Content-Type": "application/json", ...(["deepseek", "openrouter"].includes(config.provider) ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -118,17 +128,17 @@ async function ideas(config, { prompt, scored, digest }) {
   if (!config.apiKey) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  const system = "You are Doc, a patient prompt-engineering teacher inside a fun desktop app. Given a weak prompt, return 3 sharper rewritten versions: 1) names the target file/context, 2) states the expected behavior, 3) adds one constraint. Keep each under 30 words. Be kind.";
+  const system = "You are Doc, a patient prompt-engineering teacher inside a fun desktop app. Given a weak prompt, return 3 sharper rewritten versions: 1) names the target file/context, 2) states the expected behavior, 3) adds one constraint. Keep each under 30 words. Write copy-ready technical prompts in clean English, not character dialogue. Preserve supplied facts and use explicit [placeholders] for unknown files or requirements. Never invent project facts.";
   const user = `WEAK PROMPT: """${prompt}"""
 Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).map((i) => i.type).join(", ") || "vague"}.`;
   try {
     const body = provider.buildBody(
       system, user,
-      { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" }, minItems: 3, maxItems: 3 } }, required: ["ideas"] },
+      { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" }, minItems: 3, maxItems: 3 } }, required: ["ideas"] }, config.model,
     );
     const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+      headers: { "Content-Type": "application/json", ...(["deepseek", "openrouter"].includes(config.provider) ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -140,5 +150,36 @@ Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).
   } catch { return null; } finally { clearTimeout(timer); }
 }
 
-export { roast, ideas };
+async function chat(config, payload) {
+  const data = conversationPayload(payload);
+  if (!data) return null;
+  if (!config.apiKey) return { source: "offline", error: "missing_key" };
+  const provider = PROVIDERS[config.provider] || PROVIDERS.gemini;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const body = provider.buildBody(conversationSystem(data.dwarf), JSON.stringify({
+      history: data.history, message: data.message,
+    }), { type: "OBJECT", properties: { reply: { type: "STRING" } }, required: ["reply"] }, config.model);
+    const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(["deepseek", "openrouter"].includes(config.provider) ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+      body: JSON.stringify(body), signal: controller.signal,
+    });
+    if (!res.ok) {
+      const error = res.status === 429 ? "rate_limit" :
+        [401, 403].includes(res.status) ? "auth" : res.status === 404 ? "model" : "provider";
+      return { source: "offline", error };
+    }
+    let parsed;
+    try { parsed = provider.parse(await res.json()); }
+    catch { return { source: "offline", error: "response" }; }
+    if (typeof parsed?.reply !== "string" || !parsed.reply.trim()) return { source: "offline", error: "response" };
+    return { reply: parsed.reply.trim().slice(0, 1200), source: "llm" };
+  } catch (error) {
+    return { source: "offline", error: controller.signal.aborted || error?.name === "AbortError" ? "timeout" : "network" };
+  } finally { clearTimeout(timer); }
+}
+
+export { roast, ideas, chat };
 

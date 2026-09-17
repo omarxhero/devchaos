@@ -1,5 +1,5 @@
-// Offline roast bank. Keyed by dwarf × tier, plus trigger lines and Lebanese bubbles.
-// Works with zero internet, zero API key. Demo never dies.
+// Offline dialogue. Keyed by dwarf × tier; technical prompt rewrites live separately.
+// Works with zero internet, zero API key. Native-speaker taste review is pending.
 
 "use strict";
 
@@ -8,157 +8,153 @@ import { LEBANESE_BANK } from "./lebanese.js";
 const BANK = {
   doc: {
     savage: [
-      "I have graded university exams. This would fail the admission form.",
-      "A map with no streets. A recipe with no ingredients. That is your prompt.",
-      "Somewhere, a documentation writer just felt a disturbance.",
+      "Hayda l-prompt metel kharita bala shwere3. 7added l-matloob w 3tine example la na3ref wen ray7in.",
+      "7atta wara2et l-emtihan fiya 3enwen. Khallina nballesh b shu baddak men l-code.",
+      "Ma fi context wala constraints. L-AI baddo ta3limet, mish 7azzeira.",
     ],
     medium: [
-      "Missing context, missing constraints. The idea is there — the prompt isn't.",
-      "Half a prompt. I grade halves: you get half a grade.",
-      "Close. But 'close' deploys broken code at 2 AM.",
+      "L-fekra mawjoude, bass na2esna details. Shu 3am bisir w shu lezim ysir?",
+      "Khallina nzid example wa7ad w constraint. Heik l-prompt byesir awda7.",
+      "Tayyeb, bass ayya file? Sammi l-target la ma ndallna nkhammen.",
     ],
     mild: [
-      "Good bones. Add one example and it writes itself.",
-      "Nearly engineer-grade. Name the file and we're done.",
-      "Respectable. A little specificity and it's excellent.",
+      "Mni7! Example zghir w byekmal l-prompt.",
+      "Heik l-matloob wade7. Khallina n7added kif badna net2akkad enno l-7all mazbout.",
+      "Shoghol mratab. L-context 3am yse3ed ktir.",
     ],
   },
   grumpy: {
     savage: [
-      "THIS is why the AI ignores you. THIS. Right here.",
-      "I've seen better prompts from a cat walking on a keyboard. At least the cat had energy.",
-      "Forty years I've done this job. FORTY YEARS. And you bring me 'fix it'.",
-      "Somewhere, a rubber duck just resigned.",
+      "Ya 3amme, hayda prompt aw 7azzeira? Ana lezem khammen shu baddak?",
+      "L-bisse da3aset 3al keyboard w 3atet context aktar. Farjine l-code w elle shu l-error!",
+      "Arb3in sene bel-shoghol w ba3dne 3am e2ra 'fix it'. Fix SHU?!",
+      "7atta l-rubber duck zahe2 w fall. Ma la2a details la yesma3a.",
     ],
     medium: [
-      "Mediocre. Shocking. Truly nobody could have predicted this.",
-      "You typed words. Technically. None of them useful.",
-      "I refuse to grade this on a curve. There is no curve. There is a hole.",
+      "Fi kelmet, eh. Bass l-details wen?",
+      "Ya3ne lezim es7ab l-context mennak kelme kelme? Sammi l-file w khallesna.",
+      "Hayda noss prompt. L-noss l-tene 3am ya3mol break?",
     ],
     mild: [
-      "...it's fine. There. I said something nice. Are you happy.",
-      "Not the worst thing I've read today. The day was long.",
-      "Passable. Don't let it go to your head.",
+      "...mni7. Elt shi mni7, ma tkhalline 3ida.",
+      "Ma 3ande ktir la etshakka. Gharibe hal marra.",
+      "Mashi l-7al. Bass ma tekhod 3a khatrak enno 3ajabne.",
     ],
   },
   happy: {
     savage: [
-      "I LOVE how little effort this took!! Truly inspiring!! The bar has never been lower!!",
-      "AMAZING!! You managed to say SO little in SO many words!! A talent!!",
-      "WOW!! This prompt believes in itself!! Nobody else does!! But IT DOES!!",
+      "WAW! Addesh fi thi2a w addesh ma fi details! Hayde badde ella applause!",
+      "Shu hal thi2a! Ya ret l-context eje ma3a kamen!",
+      "Ma fi requirements? Ya salam, kel shi momken! W kel shi ghalat kamen!",
     ],
     medium: [
-      "2/10?! That's 2 MORE THAN ZERO!! PROGRESS!!",
-      "You SHOWED UP!! Most prompts just... don't!!",
-      "Is it vague? A little!! Is it yours? TOTALLY!!",
+      "Yalla, ballashna! Halla2 nzid details w menzabeta!",
+      "L-fekra mawjoude! Na2esna example wa7ad w mna3mol 7afle!",
+      "Enta katabet prompt! Halla2 khallina nkhalle l-AI yefhamo kamen!",
     ],
     mild: [
-      "A PROMPT GIFT!! Unwrapped it and everything!!",
-      "Look at you, prompting!! I'm so proud I could combust!!",
-      "SOLID WORK!! The AI is going to ENJOY this one!!",
+      "Bravo 3alayk! Hayda prompt byefra7 l-2alb!",
+      "Shu hal context l-mratab! Ana mabsout aktar men l-AI!",
+      "HEIK L-SHOGHOL! L-matloob wade7 w l-details mawjoude!",
     ],
   },
   sleepy: {
     savage: [
-      "...this prompt kept me awake. I resent it... deeply...",
-      "even the black hole sighed... and it's a VOID...",
-      "I graded it half asleep... still saw everything wrong... zzz...",
+      "...hayda l-prompt sa77ane... ma ken fi de3e...",
+      "...7atta l-black hole tnaffas... ma 3eref shu yebla3...",
+      "...ana noss neyim w ba3dne sheyif enno na2es context...",
     ],
     medium: [
-      "...it's... fine... i guess... now go drink water...",
-      "...zzz... oh. you're still typing. cool. cool cool...",
-      "your prompt is... eh... your EYEBAGS however...",
+      "...zid shwayyet details... w shrab may...",
+      "...ba3dak 3am tekteb?... tayyeb... ana 3am ettawweb...",
+      "...l-prompt baddo context... w ana badde mkhadde...",
     ],
     mild: [
-      "...nice prompt... now rest your eyes... 20 seconds... do it...",
-      "...good work today... the bed is calling... answer it...",
-      "...hydration check... posture check... prompt check... zzz...",
+      "...mni7... halla2 rayye7 3younak shway...",
+      "...shoghol mratab... l-takhet 3am ynadik...",
+      "...l-prompt tamam... may w break w menkammel...",
     ],
   },
   sneezy: {
     savage: [
-      "ACHOO. oh no. NOW look what you made me grade. It's RUINED. Like my sinuses.",
-      "I sneezed on it and honestly?? It got BETTER. ACHOO. Marginally.",
-      "This prompt arrived broken and I broke it MORE. ACHOO. We're even.",
+      "ACHOO! Ya wayle, ba3tart l-7rouf! Halla2 min byelme l-context?",
+      "3atast 3al prompt w sar awda7 shway. ACHOO! Ma kenet 2asde!",
+      "Ken na2so details w ana tayyart l-be2e. ACHOO! Ma3lesh!",
     ],
     medium: [
-      "ACHOO — oh that one had LETTERS EVERYWHERE. Half of them wrong.",
-      "ah... AH... the dust... the VAGUENESS... it tickles... ACHOO.",
-      "I can't tell if that was a prompt or pollen. ACHOO.",
+      "ACHOO! L-7rouf saro b kel ma7all! Min bya3ref ayya wa7de la wen?",
+      "Ah... AH... l-context mkhabba bel-ghabra? ACHOO!",
+      "Hayda prompt aw 7assesiyye? ACHOO! Ma 3am 2e2dar mayyez!",
     ],
     mild: [
-      "ACHOO. oh. that one was... actually okay?? weird. ACHOO. nice.",
-      "sneeze-checked. survives. barely. ACHOO. proud of you.",
-      "clean prompt, dusty keyboard. ACHOO. fix the keyboard.",
+      "ACHOO! Ba3do wade7! Hayda prompt bye7mol 3atse!",
+      "L-3atse ma kharrabet l-prompt! Bravo 3alayk!",
+      "L-prompt ndif, l-keyboard mghabbar. ACHOO! Naddfo shway!",
     ],
   },
   bashful: {
     savage: [
-      "um... I can't look... this is... the worst thing I've... I'm so sorry... so, so sorry...",
-      "it's... um... oh no... I'll just say it... it's BAD. sorry!! SORRY!!",
-      "I peeked through my fingers and... yeah... no... I'm sorry... please don't cry...",
+      "Euh... l-context mkhabba... w ana ma 3am le2i... sorry...",
+      "Ma badde za33lak... bass l-AI ma bya3ref yi2ra afkar... sorry!",
+      "...fina nzid requirements? La2anno halla2 ma fi... ma3lesh...",
     ],
     medium: [
-      "um... it's a little... vague... sorry... a medium amount of vague... sorry again...",
-      "I have notes... small ones... gentle ones... I'll email them... sorry...",
-      "it's not... BAD bad... it's... um... I'm sorry, I have to go...",
+      "...na2es shwayyet details... eza ma fi iz3aj...",
+      "3ande mola7aza zghire... example wa7ad byese3ed... sorry...",
+      "Mish ghalat... bass mish wade7 ktir... ma3lesh...",
     ],
     mild: [
-      "it's... actually nice?? sorry... it is!! I'm not even being polite!!",
-      "oh I LIKE this one... um... don't tell the others... sorry...",
-      "good prompt... um... really good... okay bye. SORRY.",
+      "...3ajabne! 3anjad... mish bass 3am bejmel...",
+      "Ktir mratab... bass ma t2ellon enno ana elet...",
+      "Prompt mni7... ya3ne mni7 ktir... merci!",
     ],
   },
   dopey: {
     savage: [
-      "3!! My favorite number!! ...what are we counting??",
-      "you want it FIXED?? I hugged it!! It's not fixed but it's LOVED!!",
-      "the prompt is bad?? I ate the prompt!! PROBLEM SOLVED!!",
+      "Baddak l-bug yrou7? 7attetlo shanta! Sar jehiz lal-safar!",
+      "Baddak fix? Lazza2to b scotch! Leh ba3do ma 3am yeshtighil?",
+      "L-prompt na2es? Akalet l-be2e! Fakkarto snack!",
     ],
     medium: [
-      "you want a sorting algorithm? I MADE YOU A SALAD!! It's sorted by tastiness!!",
-      "is 'context' a place?? I'll look there!! I found my hat there once!!",
-      "I put the words in a bag and shook it!! Same prompt!! Different vibes!!",
+      "Baddak sorting? Rattabet l-salata 7asab l-alwen!",
+      "L-context wen? Dawwart ta7t l-ta2iyye w la2et biscuit!",
+      "7attet l-kelmet b kis w rajjayto! Sar 3anna prompt jdid!",
     ],
     mild: [
-      "BIG WORDS!! I read some of them!! The round ones are my favorite!!",
-      "I HELPED. probably. the vibes say yes!!",
-      "PROMPT ACQUIRED!! I will guard it with my LIFE!! or a nap!!",
+      "Kelmet kbar! 2rit kam wa7de! L-be2e 7elwe shaklon!",
+      "ANA SE3ADET! Ma ba3ref kif, bass 7asset heik!",
+      "Ra7 e7rose hal prompt! Bass eza ne3set, 7adan ykammel 3anne!",
     ],
   },
 };
 
-// Trigger-specific lines (any dwarf can deliver, or dedicated events use these).
 const TRIGGERS = {
   two_am: [
-    "GO. TO. BED.",
-    "it is 2AM. the bug will still be there tomorrow. YOU need to not be.",
-    "nothing good compiles at this hour. NOTHING.",
+    "YALLA. ROU7. NEM.",
+    "Saret 2 bel-leil. L-bug byontor la bokra, enta rayye7 shway.",
+    "L-compile ma 3am yezbat? Jarrib ta3mol restart la 3younak.",
   ],
   vague_streak: [
-    "THREE. Three lazy prompts in a row. I'm leaving. DOPEY! You're up!",
-    "I quit. The potato has taken over my shift.",
+    "TLETE prompts bala context! Ana fellet. DOPEY! Khod ma7alle!",
+    "Khalas, sallamet l-shift la Dopey. Dabbro raskon.",
   ],
-  score_crash: [
-    "Emergency happiness deployment!! You're doing GREAT!! Statistically no!! But SPIRITUALLY!!",
-  ],
+  score_crash: ["Yalla, menzabeta! L-score nezil bass ana ba3dne m2amman fik!"],
   memory_callback: [
-    "THIS is the FOURTH 'fix it' today. FOUR. I counted. I always count.",
-    "your worst prompt today was {worst}. I remember. I ALWAYS remember.",
-    "average score today: {avg}. Yesterday you were {trend}. I keep receipts.",
+    "Ba3dne mnetbe7 3al prompts. L-context ma byekhba 3anne!",
+    "L-prompt li akhad a2all score lyom ken {worst}. Eh, ba3dne metzakkar.",
+    "L-average lyom {avg}. Khallina nerfa3o shwayyet details.",
   ],
   idle: [
-    "...they left. they just... left. with the prompt like THIS...",
-    "hello?? prompt services?? anyone??",
-    "(hums theme song badly)",
+    "...fallo w tarakoule l-prompt heik...",
+    "Alo? Fi 7ada bado yekteb prompt?",
+    "...la la la... nsit be2e l-ghenniyye...",
   ],
   blackhole_warning: [
-    "ok... that's enough... you've been at it for {minutes} minutes...",
-    "the void opens in 10 seconds. hydrate. stretch. repent.",
+    "Khalas... sarlek {minutes} minutes 3am teshtighil... rayye7 shway...",
+    "L-black hole jeye... shrab may w maddid dahrak...",
   ],
 };
 
-// Lebanese spice — text bubbles only, voice stays gibberish.
 const LEBANESE = Object.values(LEBANESE_BANK).flatMap((bank) =>
   Object.values(bank).flatMap((entries) => entries.map((entry) => entry.text))
 );
@@ -181,7 +177,5 @@ function maybeLebanese(chance = 0.18, dwarfId = "grumpy", tier = "medium") {
   const list = bank[tier] || bank.medium;
   return list[Math.floor(Math.random() * list.length)].text;
 }
-
-
 
 export { pickRoast, pickTrigger, maybeLebanese, LEBANESE };

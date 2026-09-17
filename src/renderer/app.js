@@ -1,6 +1,6 @@
 // App orchestrator v2: everything lives in the draggable dialogue panel.
-// Prompt flow: input → scorer → chat score + roast (LLM/canned) + Doc refactor +
-// dual-dispatch copy bridge + quip bubble on the dwarf. Deadline chip → black hole.
+// IDE prompts get scored and roasted; the manual box is ordinary conversation.
+// Deadline chip → black hole.
 
 "use strict";
 
@@ -8,6 +8,7 @@ import { analyze } from "../brain/scorer.js";
 import { get, ORDER } from "../brain/personalities.js";
 import * as canned from "../brain/canned.js";
 import * as memory from "../brain/memory.js";
+import { offlineReply } from "../brain/conversation.js";
 
 const $ = (id) => document.getElementById(id);
 const dwarfEngine = window.DEVCHAOS_DWARF;
@@ -15,7 +16,8 @@ const dwarfEngine = window.DEVCHAOS_DWARF;
 let session = null;
 let memoryState = memory.create();
 let roastometer = 50;
-let config = { demo: false, breakMinutes: 25, voiceOn: true };
+let config = { demo: false, breakMinutes: 180, breakDurationMinutes: 30, voiceOn: true };
+let breakStartedAt = null;
 let hole = null; // overlay-native black hole engine (./hole.js)
 
 function applyConfig(next) {
@@ -48,7 +50,7 @@ async function boot() {
     hole = null;
   }
 
-  buildHats();
+  buildCycleButton();
   wireDialogue();
   wireIslands();
   startDeadlineTimer();
@@ -64,6 +66,7 @@ async function boot() {
   const listenChip = $("listen-chip");
   const paintListen = (on) => {
     listenChip.classList.toggle("on", on);
+    listenChip.setAttribute("aria-pressed", String(on));
     $("listen-label").textContent = on ? "IDE: ON" : "IDE: OFF";
     dwarfEngine.el.classList.toggle("listening", on);
   };
@@ -86,18 +89,18 @@ async function boot() {
     if (on !== lastListenAnnounced) {
       lastListenAnnounced = on;
       chatPush("dwarf", on
-        ? "🎧 IDE listening is ON — everything you say to your AI, I hear too."
-        : "🎧 IDE listening off. I'll mind my own business.");
-      if (on) quip("\u{1F3A7} I can hear your IDE now. Type carefully.");
+        ? "🎧 L-listener ON. Bjarreb el2ot l-prompts men nawafez l-AI li ba3refa."
+        : "🎧 L-listener OFF. Halla2 bkhalle l-keyboard la7alo.");
+      if (on) quip("\u{1F3A7} L-listener sheghghal. Dall 3aynak 3al chip.");
     }
   }, 3000);
 
   dwarfEngine.setDwarf(dwarfEngine.id, { poof: false });
   dwarfEngine.setState("walk");
-  setTimeout(() => quip("We are the prompt dwarfs. Talk to us."), 1000);
+  setTimeout(() => quip("Ne7na l-prompt dwarfs. Farjina shu 3andak!"), 1000);
 
   updateMoodUI();
-  chatPush("dwarf", "Ask your AI anything — I grade everything you type. Try me with something lazy.");
+  chatPush("dwarf", "Ahla! Hon fina ne7ke sawa bala ta2yim. L-prompts li btekteba bel-IDE henne li bya5do score.");
 }
 window.addEventListener("DOMContentLoaded", boot);
 
@@ -126,6 +129,7 @@ function openDialogue() { $("dialogue").classList.remove("hidden"); }
 
 function quip(text, lebanese = null) {
   const bubble = $("bubble"), span = $("bubble-text");
+  clearTimeout(window.__bubbleHideTimer);
   bubble.classList.remove("hidden");
   span.innerHTML = "";
   if (lebanese) {
@@ -146,7 +150,7 @@ function quip(text, lebanese = null) {
   window.__bubbleTimer = setInterval(() => {
     if (i >= text.length) {
       clearInterval(window.__bubbleTimer);
-      setTimeout(() => { bubble.classList.add("hidden"); if (dwarfEngine.state === "talk") dwarfEngine.setState("idle"); }, 2200);
+      window.__bubbleHideTimer = setTimeout(() => { bubble.classList.add("hidden"); if (dwarfEngine.state === "talk") dwarfEngine.setState("idle"); }, 4600);
       return;
     }
     const ch = text[i++];
@@ -175,42 +179,52 @@ async function submitPrompt() {
   submitText(text, { source: "bar" });
 }
 
-// One pipeline for both entry points: the bar (typed manually) and the
-// IDE listener (captured automatically — marked 🎧 in the chat).
-// One-slot queue: a prompt arriving while a roast is animating runs after,
-// instead of vanishing silently mid-demo.
-let __pendingPrompt = null;
-function submitText(text, { source = "bar" } = {}) {
-  if (window.__submitting) { __pendingPrompt = { text, source }; return; }
+const pendingInputs = [];
+const conversationHistory = new Map();
+function submitText(text, { source = "bar", dwarfId = dwarfEngine.id } = {}) {
+  if (window.__submitting) { pendingInputs.push({ text, source, dwarfId }); return; }
   window.__submitting = true;
-  reactToPrompt(text, source)
-    .catch(console.error)
+  const respond = source === "ide" ? reactToPrompt : converse;
+  respond(text, source, dwarfId)
+    .catch(() => chatPush("dwarf", "Ma zabtet hal marra. Jarrib marra tenye."))
     .finally(() => {
       window.__submitting = false;
-      if (__pendingPrompt) {
-        const next = __pendingPrompt;
-        __pendingPrompt = null;
-        submitText(next.text, next);
-      }
+      const next = pendingInputs.shift();
+      if (next) submitText(next.text, next);
     });
 }
 
-async function reactToPrompt(text, source) {
+async function converse(text, _source, dwarfId) {
+  openDialogue();
+  chatPush("user", text);
+  $("docbox").classList.add("hidden");
+  const history = conversationHistory.get(dwarfId) || [];
+  const replyDiv = chatPush("dwarf", "La7za...");
+  const result = await window.devchaos?.chat?.({ message: text, dwarfId, history }).catch(() => null);
+  const reply = result?.reply || offlineReply(text, dwarfId, result?.error);
+  if (result?.source === "llm") conversationHistory.set(dwarfId, [...history,
+    { role: "user", content: text.slice(0, 1000) },
+    { role: "assistant", content: reply.slice(0, 1000) },
+  ].slice(-10));
+  replyDiv.textContent = reply;
+  $("chat").scrollTop = $("chat").scrollHeight;
+  if (dwarfEngine.id === dwarfId) quip(shorten(reply));
+}
+
+async function reactToPrompt(text, source, dwarfId = dwarfEngine.id) {
   openDialogue(); // auto-pop on every submission
   const userDiv = chatPush("user", text);
   if (source === "ide") userDiv.textContent = "\u{1F3A7} " + text; // proof it was heard, not typed
 
-  const dwarf = get(dwarfEngine.id);
-  let finalText = text;
+  const dwarf = get(dwarfId);
 
   if (dwarf.id === "sneezy") {
-    finalText = sneezeScramble(text);
     window.DEVCHAOS_SFX?.play("sneeze", { volume: 0.9 });
     dwarfEngine.setState("panic", { holdMs: 900 });
-    chatPush("dwarf", "(ACHOO — grading the mangled version)");
+    chatPush("dwarf", "(ACHOO! Ma tkhaf, l-prompt ba3do metel ma katabto.)");
   }
 
-  const scored = analyze(finalText);
+  const scored = analyze(text);
   window.__lastPrompt = text;        // Doc "help me" works on the ORIGINAL ask
   window.__lastScored = scored;
   const roastTier = tierFromRoastometer(scored.tier);
@@ -237,7 +251,7 @@ async function reactToPrompt(text, source) {
   let line = null, refactored = null;
   if (window.devchaos) {
     const res = await window.devchaos.roast({
-      prompt: finalText, scored, dwarf, roastometer,
+      prompt: text, scored, dwarf, roastometer,
       digest: memory.memoryDigest(memoryState),
     }).catch(() => null);
     if (res) { line = res.roast; refactored = res.refactored; }
@@ -276,17 +290,6 @@ function tierFromRoastometer(scoredTier) {
   return scoredTier;
 }
 
-function sneezeScramble(text) {
-  const chars = text.split("");
-  for (let i = chars.length - 1; i > 0; i--) {
-    if (Math.random() < 0.35 && /[a-z]/i.test(chars[i])) {
-      const j = Math.floor(Math.random() * chars.length);
-      [chars[i], chars[j]] = [chars[j], chars[i]];
-    }
-  }
-  return chars.join("");
-}
-
 function quickRefactor(text, scored) {
   const fixes = scored.issues.map((i) => i.fix).slice(0, 2).join("; ");
   return `${text.trim().replace(/[.!?]+$/, "")} — [ADD: language/file${fixes ? "; " + fixes.toLowerCase() : ""}; expected behavior; one constraint]`;
@@ -311,16 +314,15 @@ function fireTriggers() {
   const s = memoryState.stats;
   if (s.vagueStreak >= 3 && dwarfEngine.id === "grumpy") {
     chatPush("dwarf", canned.pickTrigger("vague_streak"));
-    quip("THREE lazy ones. I'm out. DOPEY! You're up.");
+    quip("TLETE prompts bala details. Ana fellet. DOPEY! Khod ma7alle!");
     // storm-off: he SPRINTS off the screen, then Dopey poofs in
     dwarfEngine.stormOff(() => {
-      dwarfEngine.setDwarf("dopey");
-      quip("hii!! I'm the replacement!!");
+      setActiveDwarf("dopey");
     });
     s.vagueStreak = 0;
   } else if (s.crashStreak >= 3 && dwarfEngine.id !== "happy") {
     chatPush("dwarf", canned.pickTrigger("score_crash"));
-    setTimeout(() => dwarfEngine.setDwarf("happy"), 2400);
+    setTimeout(() => setActiveDwarf("happy"), 2400);
     s.crashStreak = 0;
   } else if (s.count >= 4 && s.count % 4 === 0) {
     const d = memory.memoryDigest(memoryState);
@@ -339,7 +341,7 @@ function wakeUp() {
   if (napping) {
     napping = false;
     dwarfEngine.setState("panic", { holdMs: 700 });
-    quip("I'M AWAKE. I'M AWAKE.");
+    quip("ANA FEYE2. ANA FEYE2!");
   }
 }
 
@@ -357,7 +359,7 @@ function startIdleLife() {
       if (!napping && dwarfEngine.state !== "sleep") {
         napping = true;
         dwarfEngine.setState("sleep");
-        quip("...zzz... wake me when you write something decent...");
+        quip("...zzz... wa33ine bas yje l-prompt...");
       }
       return;
     }
@@ -375,38 +377,32 @@ function startIdleLife() {
 
 /* ---------------- hats / mood / leaderboard ---------------- */
 
-function buildHats() {
-  const wrap = $("hats");
-  wrap.innerHTML = "";
-  for (const id of ORDER) {
-    const d = get(id);
-    const b = document.createElement("div");
-    b.className = "hat-btn" + (id === dwarfEngine.id ? " active" : "");
-    b.style.background = d.color;
-    b.textContent = d.name.toUpperCase();
-    b.title = `${d.name} — ${d.job}`;
-    b.onclick = () => {
-      dwarfEngine.setDwarf(id);
-      wrap.querySelectorAll(".hat-btn").forEach((x) => x.classList.remove("active"));
-      b.classList.add("active");
-      window.devchaos?.activeDwarf(id);
-      $("dialogue-title").textContent = `${d.name.toUpperCase()} — ${d.job.toUpperCase()}`;
-      document.getElementById("dialogue").style.setProperty("--hat", d.color);
-      quip(entranceLine(id));
-    };
-    wrap.appendChild(b);
-  }
+// The header color chip cycles through the seven dwarfs: one click = next dwarf.
+function buildCycleButton() {
+  const btn = $("dwarf-cycle");
+  btn.style.background = get(dwarfEngine.id).color;
+  btn.onclick = () => setActiveDwarf(ORDER[(ORDER.indexOf(dwarfEngine.id) + 1) % ORDER.length]);
+}
+
+function setActiveDwarf(id) {
+  const d = get(id);
+  dwarfEngine.setDwarf(id);
+  window.devchaos?.activeDwarf(id);
+  $("dialogue-title").textContent = `${d.name.toUpperCase()} — ${d.job.toUpperCase()}`;
+  $("dialogue").style.setProperty("--hat", d.color);
+  $("dwarf-cycle").style.background = d.color;
+  quip(entranceLine(id));
 }
 
 function entranceLine(id) {
   return {
-    doc: "Doc here. Show me the prompt. I'll show you the way.",
-    grumpy: "What. WHAT do you want now.",
-    happy: "IT'S ME!! I BROUGHT ENTHUSIASM!!",
-    sleepy: "...mmh. five more minutes. fine. show me.",
-    sneezy: "ah... AH... give me the prompt... carefully...",
-    bashful: "oh!! um!! hi!! I'll try my best...",
-    dopey: "I'M HERE!! what are we doing?! I LOVE it already!!",
+    doc: "Ana Doc. Shu baddak ne7ke lyom?",
+    grumpy: "Shu. SHU baddak halla2?",
+    happy: "ANA EJET! W JEBET L-7AMAS MA3E!",
+    sleepy: "...mmh. khams d2aye2 ba3d... tayyeb, farjine...",
+    sneezy: "ah... AH... 3tine l-prompt... shway shway...",
+    bashful: "Euh... mar7aba... ra7 jarrib se3dak...",
+    dopey: "ANA HON! Shu 3am na3mol?! 3AJABNE!",
   }[id] || "...";
 }
 
@@ -414,9 +410,6 @@ function updateMoodUI() {
   const band = memory.moodBand(memoryState);
   const fill = $("mood-fill");
   fill.style.width = Math.round(memoryState.mood * 100) + "%";
-  const colors = { thriving: "#9dffb0", neutral: "#ffd94a", sick: "#8fd4ff" };
-  fill.style.background = colors[band];
-  $("mood-wrap").style.color = colors[band];
   if (band === "sick") dwarfEngine.setState("sick", { holdMs: 4000 });
 }
 
@@ -440,6 +433,7 @@ function startDeadlineTimer() {
   const minutes = config.demo ? 0.75 : config.breakMinutes;
   let deadline = Date.now() + minutes * 60_000;
   setInterval(() => {
+    if (window.__breaking) { $("break-count").textContent = "BREAK"; return; }
     const left = Math.max(0, deadline - Date.now());
     const m = Math.floor(left / 60_000), s = Math.floor((left % 60_000) / 1000);
     $("break-count").textContent = left ? `${m}:${String(s).padStart(2, "0")}` : "VOID";
@@ -453,16 +447,17 @@ function startDeadlineTimer() {
 function triggerBreak() {
   if (window.__breaking) return;
   window.__breaking = true;
+  breakStartedAt = Date.now();
 
   if (hole) {
     // OVERLAY-NATIVE sequence: hole spawns small over the real work and grows.
     dwarfEngine.setDwarf("sleepy", { poof: true });
     dwarfEngine.setState("walk");
-    quip("the deadline is coming... it's HUNGRY...");
+    quip("L-wa2t kholis... l-black hole je3an...");
     window.DEVCHAOS_SFX?.play("whoosh", { volume: 0.35 });
     const ok = hole.runHoleCycle({
-      growSec: config.demo ? 8 : 180,
-      recedeSec: config.demo ? 12 : 30,
+      growSec: config.demo ? 10 : (config.breakDurationMinutes ?? 30) * 30,
+      recedeSec: config.demo ? 10 : (config.breakDurationMinutes ?? 30) * 30,
       // The hole alone tells the story — no text overlays.
       onDone: () => {
         window.DEVCHAOS_SFX?.play("victory", { volume: 0.7 });
@@ -479,11 +474,12 @@ function triggerBreak() {
 function breakEnded() {
   window.__breaking = false;
   window.__resetDeadline?.();
-  memoryState.stats.blackHoleMinutes += config.demo ? 1 : config.breakMinutes;
+  if (breakStartedAt !== null) memoryState.stats.blackHoleMinutes += Math.max(0, Date.now() - breakStartedAt) / 60_000;
+  breakStartedAt = null;
   persistSession();
   dwarfEngine.setDwarf(dwarfEngine.id, { poof: true });
   dwarfEngine.setState("victory");
-  chatPush("dwarf", "You rested. We're proud. Mostly.");
+  chatPush("dwarf", "Rayya7et shway. Bravo 3alayk... ma tkhallina n3ida.");
   setTimeout(showLeaderboard, 1500);
 }
 
@@ -512,7 +508,7 @@ function wireDialogue() {
   const panel = $("dialogue"), drag = $("dialogue-drag");
   let dx = 0, dy = 0, dragging = false;
   drag.addEventListener("mousedown", (e) => {
-    if (e.target.id === "dialogue-close") return;
+    if (e.target.closest("button")) return;
     dragging = true;
     const r = panel.getBoundingClientRect();
     dx = e.clientX - r.left; dy = e.clientY - r.top;
@@ -525,8 +521,13 @@ function wireDialogue() {
   });
   window.addEventListener("mouseup", () => (dragging = false));
 
-  // X = hide panel (dwarfs keep living; hats bring it back)
+  // X = hide panel (dwarfs keep living; a plain click on the dwarf brings it back)
   $("dialogue-close").onclick = () => $("dialogue").classList.add("hidden");
+  let dwarfDownX = null;
+  dwarfEngine.el.addEventListener("mousedown", (e) => { dwarfDownX = e.clientX; });
+  dwarfEngine.el.addEventListener("click", (e) => {
+    if (dwarfDownX !== null && Math.abs(e.clientX - dwarfDownX) < 6) openDialogue();
+  });
 
   // Roastometer
   const slider = $("roastometer");
@@ -549,28 +550,6 @@ function wireDialogue() {
     wasSavageZone = savageZone;
   });
   slider.dispatchEvent(new Event("input"));
-
-  // DOC, HELP ME: 3 sharper versions of the last prompt (LLM when keyed,
-  // built from the scorer's own diagnosis when offline).
-  $("doc-help").onclick = async () => {
-    const prompt = window.__lastPrompt, scored = window.__lastScored;
-    if (!prompt) return;
-    openDialogue();
-    chatPush("user", "Doc, help me with: " + prompt.slice(0, 60));
-    chatPush("dwarf", "One moment. Teaching mode.");
-    let ideas = window.devchaos ? await window.devchaos.ideas({ prompt, scored, digest: memory.memoryDigest(memoryState) }) : null;
-    if (!ideas) {
-      const fixes = (scored.issues || []).map((i) => i.fix).slice(0, 3);
-      const base = prompt.trim().replace(/[.!?]+$/, "");
-      ideas = [
-        `${base} — in FILE: <name>, LANGUAGE: <language>`,
-        `${base} — EXPECTED BEHAVIOR: <what should happen exactly>`,
-        `${base} — CONSTRAINT: ${fixes[0] || "<one limit, e.g. no libraries>"}`,
-      ];
-      chatPush("dwarf", "(offline — built from the scorer's diagnosis)");
-    }
-    showIdeasBox(ideas);
-  };
 
   // dual-dispatch bridge: copy the engineered prompt for the user's real AI
   $("docbox-copy").onclick = () => {

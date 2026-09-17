@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("devchaos", {
   sessionSet: (state) => ipcRenderer.invoke("devchaos:session-set", state),
   roast: (payload) => ipcRenderer.invoke("devchaos:roast", payload),
   ideas: (payload) => ipcRenderer.invoke("devchaos:ideas", payload),
+  chat: (payload) => ipcRenderer.invoke("devchaos:chat", payload),
   recordPrompt: (entry) => ipcRenderer.invoke("devchaos:record-prompt", entry),
   // All subscriptions unwrap the IPC event: the payload is arg #2.
   onBreakStarted: (cb) => ipcRenderer.on("devchaos:break-started", (_e, p) => cb(p)),

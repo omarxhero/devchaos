@@ -42,7 +42,7 @@ const float DISK_OUTER    = 8.0000; // outer edge
 const float DISK_INCL     = 1.5000; // inclination, rad: 0 = face-on, 1.57 = edge-on
 const float DISK_ROLL     = 0.3500; // rotation of the whole system in the screen plane, rad
 // accretion disk matter & light
-const float DISK_GAIN     = 2.2000; // disk emission brightness
+const float DISK_GAIN     = 1.6000; // disk emission brightness
 const float DISK_OPACITY  = 0.9000; // how much the near disk hides what is behind it (0..1)
 const float DISK_TEMP     = 5500.0000; // temperature of the hottest annulus, Kelvin (blackbody color)
 const float DOPPLER_MIX   = 0.6000; // 0 = no relativistic color/brightness asymmetry, 1 = full effect
@@ -51,7 +51,7 @@ const float DISK_SPEED    = 5.0000; // streak pattern speed; negative reverses t
 const float DISK_WIND     = 7.0000; // spiral winding tightness of the streaks
 const float DISK_CONTRAST = 1.6000; // streak contrast: 0 = smooth haze, higher = sharp filaments
 // light & screen
-const float EXPOSURE      = 1.4000; // tonemap exposure for the disk light (terminal text is untouched)
+const float EXPOSURE      = 1.1000; // tonemap exposure for the disk light (terminal text is untouched)
 const float DRIFT_SPEED   = 1.0000; // how fast the hole floats around
 const float WORK_AREA     = 0.3300; // bottom screen fraction kept undistorted
 const float DILATION_MIN  = 0.2000; // disk pattern time rate at full size (gravitational time dilation theme)

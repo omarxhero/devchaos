@@ -1,7 +1,7 @@
 # DevChaos — The 7 Dwarfs of Prompt Engineering
 
 Pixel dwarfs live on your screen, hear what you type to your AI, grade your prompts,
-roast you in gibberish — and a real gravitational-lens black hole eats your screen when
+roast your prompts in written Lebanese Arabizi with game-gibberish audio — and a real gravitational-lens black hole eats your screen when
 it's time to rest.
 
 Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun · Demo).
@@ -11,9 +11,13 @@ Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun 
 ## What it does
 
 - **7 dwarf personas, one fair scoring brain.** Doc teaches, Grumpy destroys, Happy hypes
-  garbage, Sleepy owns the black hole, Sneezy sneezes on your prompt and grades the
-  mangled remains, Bashful whispers his critique, Dopey answers the wrong question
-  thrilled. The score is always the same deterministic engine — only the delivery changes.
+  garbage, Sleepy owns the black hole, Sneezy sneezes without changing your input,
+  Bashful whispers his critique, Dopey answers the wrong question thrilled.
+  Every dwarf grades the exact original IDE prompt using the same deterministic engine.
+- **Normal dwarf chat.** The dialogue input is for conversation in Lebanese Arabizi,
+  not prompt grading — even if you type “fix it”. No score cards, prompt statistics,
+  quality streaks or automatic rewrites. Each dwarf remembers up to ten recent chat
+  messages in memory for follow-ups; this history resets when the app reloads.
 - **🎧 IDE listener (the magic).** Toggle the headphones and the dwarf reacts to detected prompts
   you type to your real AI agent (VS Code, Zed, Cursor, ZCode, Claude Code, browser AI
   chats). Type once — the dwarf reacts automatically. Code lines, URLs and terminal
@@ -72,12 +76,25 @@ tools/          art pipeline (cutout/classify), ide-listener.ps1 (keyboard hook)
 tests/          node:test suites (scorer calibration, banks, memory, gates)
 ```
 
-Design spine: `PROMPT → scorer → {stamp, mood, memory, triggers} → dwarf state →
-{bubble, voice} → LLM-or-canned roast → black hole → leaderboard` — one pipeline shared
-by the manual bar and the IDE listener.
+IDE path: `original IDE prompt → scorer → score card, mood, memory, triggers → roast + Doc refactor`.
+Chat path: `manual message + bounded per-dwarf chat history → conversational reply`.
+Routing depends on where the input came from, not what its words look like.
+**DOC, HELP ME** remains an explicit request for English rewrites of the last graded
+IDE prompt; chatting does not replace that target. The Roastometer controls IDE roasts.
 
-**Offline-first:** the demo survives dead WiFi. Rule scorer + canned roasts are local;
-the LLM layer is an upgrade, not a dependency.
+**Offline-first grading:** rule scorer + canned roasts remain local. Normal chat has
+simple local greetings and acknowledgements; other questions show an honest offline
+notice rather than a roast or an invented answer. Full conversation needs the selected
+Gemini or DeepSeek provider. Chat replies appear immediately after the provider returns,
+without waiting for the panel's roast typewriter animation.
+
+**Dialogue:** the main overlay uses Lebanese Arabizi for dwarf replies, including
+primary offline roasts, idle quips and entrances. Model prompts require whole-roast
+Arabizi rather than English with a greeting. Copy-ready model rewrites remain English;
+offline templates preserve the original input and append English guidance. Audio is
+still game-gibberish, not spoken Arabic. Native-speaker taste approval is pending;
+see [samples and verification limits](docs/LEBANESE_TASTE_CHECK.md). The legacy separate
+break-window fallback retains its old English text.
 
 ## Tests
 
@@ -97,12 +114,16 @@ Enter. The buffer is discarded on foreground-window changes and observed title c
 This is a heuristic, not a guarantee that every AI prompt is detected or every sensitive
 field is excluded. Synthetic tests cover reset logic, not live Windows event delivery.
 
-Accepted prompts enter the same local history as manually submitted prompts and are
-persisted in `session.json` under Electron's user-data directory. Gate diagnostics omit
-captured text and window metadata. Older logs from earlier versions are not scrubbed.
-When an API key is configured, accepted prompts and a session summary may be sent to
-the selected provider. Disable listening for sensitive work, or keep the app offline
-without a key. Keys are stored in local plaintext configuration, not encrypted; the
+Accepted IDE prompts enter local prompt history and are persisted in `session.json`
+under Electron's user-data directory. Manual conversation does not enter that history;
+its bounded per-dwarf history is held only in renderer memory. Existing saved history
+from older versions is not removed. Gate diagnostics omit captured text and window
+metadata. Older logs from earlier versions are not scrubbed.
+When an API key is configured, accepted IDE prompts and a session summary may be sent
+to the selected provider. Manual chat sends the current message and up to ten previous
+chat messages for that dwarf (each history entry capped at 1,000 characters); IDE
+prompt history is not included in chat requests. Disable listening for sensitive work,
+avoid sensitive chat messages, or keep the app offline without a key. Keys are stored in local plaintext configuration, not encrypted; the
 settings UI masks saved keys and never returns their value to the renderer.
 
 The screen capture used for the black hole is processed locally. Do not commit
