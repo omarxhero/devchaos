@@ -1,14 +1,15 @@
 // LLM adapter: Gemini Flash primary (native JSON mode), DeepSeek backup.
 // Timeout, straight fallback — no retry theater. Caller falls back to canned.
-// 12s: gemini-3.6-flash TTFB measured 4.7-5.0s on this machine (Sep 16 2026) —
-// the old 5s abort killed live roasts at the wire, every single time.
+// 30s: gemini-3.6-flash TTFB measured 4.7-5.0s (Sep 16 2026); OpenRouter
+// stealth/union-alpha measured 20-29s (Sep 17 2026) — every shorter abort
+// (12s, 20s) killed Union Alpha replies at the wire, almost every time.
 
 "use strict";
 
 import { LEBANESE_GUIDE } from "./lebanese.js";
 import { conversationPayload, conversationSystem } from "./conversation.js";
 
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 30000;
 
 const PROVIDERS = {
   gemini: {
