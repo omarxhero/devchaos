@@ -3,7 +3,7 @@
 
 "use strict";
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, desktopCapturer, session, nativeImage, globalShortcut } = require("electron");
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, desktopCapturer, session, nativeImage, globalShortcut, dialog } = require("electron");
 
 // Black-frame fix (verified on this machine via standalone rig): with default GPU
 // compositing, getDisplayMedia delivers black frames on this GPU/driver combo.
@@ -12,6 +12,8 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, desktopCapturer, sessio
 app.commandLine.appendSwitch("disable-gpu-compositing");
 const fs = require("node:fs");
 const path = require("node:path");
+const { configPatch, writeConfig } = require("./config-store.cjs");
+const { createRoastService } = require("./roast-service.cjs");
 
 const demoMode = process.argv.includes("--demo");
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -37,28 +39,38 @@ let sessionState = loadJson(SESSION_PATH, null);
 
 /* ---------------- IDE listener (headphones feature) ---------------- */
 // PowerShell WH_KEYBOARD_LL child → line per Enter → gates here → overlay.
-// Privacy contract: RAM-only in the child, per-line flush, IDE windows only,
-// natural-language lines only, OFF by default, visible state in the UI.
+// The child buffers keystrokes globally in RAM; main forwards only lines passing
+// the IDE and natural-language gates. OFF by default, with visible UI state.
 
 const { spawn } = require("node:child_process");
 const { isIdeWindow, looksLikePrompt } = require("./gates.cjs");
 let listenerProc = null;
 let listening = false;
+let listenRestoreTimer = null;
+
+function cancelListenRestore() {
+  if (listenRestoreTimer) { clearTimeout(listenRestoreTimer); listenRestoreTimer = null; }
+}
 
 function setListening(on, { persist = true } = {}) {
+  cancelListenRestore(); // an explicit change always outranks the delayed startup restore
   listening = Boolean(on);
   console.error(`[listen] setListening(${on}) -> listening=${listening} hadProc=${!!listenerProc}`);
-  if (persist) { config.listen = listening; saveConfig(); }
+  if (persist && !saveConfig({ ...config, listen: listening })) {
+    dialog.showErrorBox("Listening preference not saved", "Listening changed for this session only. The saved preference was kept.");
+  }
   if (listening && !listenerProc) {
     listenerProc = spawn("powershell.exe", [
       "-NoProfile", "-ExecutionPolicy", "Bypass",
       "-File", path.join(ROOT, "tools", "ide-listener.ps1"),
     ], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = listenerProc;
     let buf = "";
     listenerProc.stdout.setEncoding("utf8");
     listenerProc.stderr.setEncoding("utf8");
-    listenerProc.stderr.on("data", (e) => console.error("[listener:stderr]", String(e)));
+    listenerProc.stderr.on("data", () => console.error("[listener] stderr received (content omitted)"));
     listenerProc.stdout.on("data", (chunk) => {
+      if (!listening || listenerProc !== child) return;
       buf += chunk;
       let nl;
       while ((nl = buf.indexOf("\n")) >= 0) {
@@ -69,15 +81,21 @@ function setListening(on, { persist = true } = {}) {
           const evt = JSON.parse(rawLine);
           const windowOk = isIdeWindow(evt);
           const promptOk = looksLikePrompt(evt.line);
-          // Trace EVERY capture decision (RAM log only — stdout of this app).
-          console.error(`[gate] "${(evt.line || "").slice(0, 60)}" win=${windowOk} prompt=${promptOk} title="${(evt.title || "").slice(0, 50)}" proc=${evt.proc}`);
+          // Decisions only: captured text and window metadata must not enter logs.
+          console.error(`[gate] win=${windowOk} prompt=${promptOk}`);
           if (windowOk && promptOk) {
             overlay?.webContents.send("devchaos:ide-prompt", { text: evt.line, title: evt.title });
           }
         } catch { /* malformed line: skip */ }
       }
     });
-    listenerProc.on("exit", (code) => { console.error(`[listener] exited code=${code}`); listenerProc = null; if (listening) setListening(false); });
+    const stopped = () => {
+      if (listenerProc !== child) return;
+      listenerProc = null;
+      setListening(false, { persist: false });
+    };
+    child.on("error", () => { console.error("[listener] process error"); stopped(); });
+    child.on("exit", (code) => { console.error(`[listener] exited code=${code}`); stopped(); });
   }
   if (!listening && listenerProc) {
     try { listenerProc.kill(); } catch {}
@@ -92,7 +110,34 @@ function loadJson(file, fallback) {
   catch { return fallback ? structuredClone(fallback) : null; }
 }
 
-function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch {} }
+function saveConfig(next) {
+  if (!writeConfig(CONFIG_PATH, next)) return false;
+  config = next;
+  return true;
+}
+
+function broadcastConfig() {
+  // Committed config only, key redacted — renderers re-sync voice/volume/timings live.
+  const safe = { ...config, apiKey: config.apiKey ? "SET" : "" };
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("devchaos:config-changed", safe);
+  }
+}
+
+function updateSettings(patch) {
+  let next;
+  try { next = configPatch(config, patch); }
+  catch (e) { return { ok: false, error: e?.message === "Invalid settings" ? "Invalid settings." : e?.message || "Invalid settings." }; }
+  const changed = ["provider", "model", "apiKey", "demo"].some((key) => next[key] !== config[key]);
+  if (!saveConfig(next)) return { ok: false, error: "Could not save settings. Previous settings were kept." };
+  if (changed) {
+    roastService.invalidate();
+    schedulePrefetch();
+  }
+  broadcastConfig();
+  if (tray) rebuildTrayMenu();
+  return { ok: true };
+}
 function saveSession(state) { sessionState = state; try { fs.writeFileSync(SESSION_PATH, JSON.stringify(state)); } catch {} }
 
 app.whenReady().then(() => {
@@ -109,14 +154,20 @@ app.whenReady().then(() => {
     setTimeout(() => overlay?.webContents.send("devchaos:hole-run"), Math.max(1, Number(process.env.DEVCHAOS_TEST_BREAK) || 3) * 1000);
   }
   // Headphones: restore persisted listening state (survives restarts — demo safety).
+  // Delayed so one explicit OFF during startup still wins over the saved preference.
   if (config.listen === true || process.env.DEVCHAOS_LISTEN) {
-    setTimeout(() => setListening(true, { persist: false }), 2500);
+    listenRestoreTimer = setTimeout(() => {
+      listenRestoreTimer = null;
+      setListening(true, { persist: false });
+    }, 2500);
   }
 });
 
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
-  setListening(false);
+  cancelListenRestore();
+  setListening(false, { persist: false });
+  roastService.invalidate();
   tray?.destroy(); globalShortcut.unregisterAll();
 });
 
@@ -242,7 +293,10 @@ function rebuildTrayMenu() {
     { label: `Summon black hole${config.demo ? " (demo timings)" : ""}`, click: () => overlay?.webContents.send("devchaos:hole-run") },
     { label: "⚙ Settings (API key, voice)", click: () => openSettings() },
     { label: `\u{1F3A7} Listen to IDE: ${listening ? "ON" : "OFF"}`, type: "checkbox", checked: listening, click: () => setListening(!listening) },
-    { label: `Demo mode: ${config.demo ? "ON" : "OFF"}`, click: () => { config.demo = !config.demo; saveConfig(); rebuildTrayMenu(); } },
+    { label: `Demo mode: ${config.demo ? "ON" : "OFF"}`, click: () => {
+      const result = updateSettings({ demo: !config.demo });
+      if (!result.ok) dialog.showErrorBox("Settings not saved", result.error);
+    } },
     { type: "separator" },
     { label: "Quit DevChaos", click: () => app.quit() },
   ]);
@@ -263,13 +317,7 @@ ipcMain.on("devchaos:passthrough", (_e, enabled) => {
 ipcMain.handle("devchaos:get-config", () => ({ ...config, apiKey: config.apiKey ? "SET" : "" }));
 
 ipcMain.handle("devchaos:set-config", (_e, patch) => {
-  // apiKey handling: renderer sends real key only from a local settings form; "SET" means untouched.
-  const { apiKey, ...rest } = patch || {};
-  Object.assign(config, rest);
-  if (typeof apiKey === "string" && apiKey !== "SET" && apiKey.length > 0) config.apiKey = apiKey;
-  saveConfig();
-  if (config.demo && config.apiKey) schedulePrefetch(); // key just arrived — pre-warm without restart
-  return { ok: true };
+  return updateSettings(patch);
 });
 
 ipcMain.handle("devchaos:record-prompt", (_e, entry) => {
@@ -283,33 +331,23 @@ ipcMain.handle("devchaos:record-prompt", (_e, entry) => {
 ipcMain.handle("devchaos:session-get", () => sessionState);
 ipcMain.handle("devchaos:session-set", (_e, state) => { saveSession(state); return { ok: true }; });
 
-// LLM roast runs in MAIN — the API key never crosses into any renderer.
-// Roast cache: demo pre-fetch + session repeats answer instantly (RAM). Never
-// persisted — canned covers anything missing. Key = dwarf + savage-tier +
-// prompt: the Roastometer theater beat (same prompt re-roasted at MAXIMUM)
-// must roast FRESH, and a Grumpy line must never answer for another dwarf.
-const roastCache = new Map();
-const tierBucket = (r) => (r >= 65 ? "savage" : r <= 35 ? "mild" : "medium");
-const cacheKey = (p, dwarfId, roastometer) =>
-  `${dwarfId || "?"}:${tierBucket(Number(roastometer) || 50)}:${String(p || "").trim().toLowerCase().slice(0, 300)}`;
+// LLM requests run in main; stored keys are never returned to renderers.
 
 // ESM dynamic import needs a file:/// URL — a raw backslash path throws
 // ERR_UNSUPPORTED_ESM_URL_SCHEME, which silently degraded every roast to canned.
 const { pathToFileURL } = require("node:url");
 const importBrain = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
 
+const roastService = createRoastService({ getConfig: () => config, loadBrain: importBrain });
+
 ipcMain.handle("devchaos:roast", async (_e, payload) => {
   try {
-    const key = cacheKey(payload?.prompt, payload?.dwarf?.id, payload?.roastometer);
-    if (key && roastCache.has(key)) return { ...roastCache.get(key), source: "cache" };
-    const { roast } = await importBrain("src/brain/llm.js");
-    const result = await roast(config, payload);
-    if (result && key) roastCache.set(key, result);
+    const result = await roastService.request(payload, { bypassCache: payload?.bypassCache === true });
     console.error(`[roast] served: ${result ? result.source : "null (canned will cover)"}`);
     return result;
-  } catch (e) {
-    console.error("[roast] FAILED:", e?.message || e); // never silent again
-    return null; // canned fallback in renderer
+  } catch {
+    console.error("[roast] failed (details omitted)");
+    return null;
   }
 });
 
@@ -325,11 +363,8 @@ ipcMain.handle("devchaos:ideas", async (_e, payload) => {
   }
 });
 
-// Demo pre-fetch: quietly roast the scripted beats so the stage never waits.
-// Seeds BOTH delivery tiers per prompt (medium for the first ask, savage for
-// the MAXIMUM re-roast), staggered to stay under free-tier rate limits.
-// Grumpy is the seeded voice (demo default); other dwarfs roast live once,
-// then cache. Re-run after a key is saved — no restart needed.
+// Seed Grumpy at exact demo intensities using the same scorer and request path.
+// Serial spacing reduces bursts; provider quotas still apply.
 function schedulePrefetch() {
   if (!config.demo || !config.apiKey) return;
   const file = path.join(ROOT, "demo", "DEMO_PROMPTS.txt");
@@ -337,25 +372,7 @@ function schedulePrefetch() {
   try {
     prompts = fs.readFileSync(file, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch (e) { console.error("[prefetch] no demo file:", e.message); return; }
-  importBrain("src/brain/llm.js").then(({ roast }) =>
-    importBrain("src/brain/personalities.js").then(({ get }) => {
-      const dwarf = get("grumpy");
-      let i = 0;
-      for (const p of prompts) {
-        for (const ro of [50, 85]) { // medium + savage buckets
-          const key = cacheKey(p, dwarf.id, ro);
-          if (roastCache.has(key)) continue;
-          setTimeout(() => {
-            roast(config, {
-              prompt: p,
-              scored: { score: 3, label: "SPAGHETTI THOUGHT", issues: [] },
-              dwarf, roastometer: ro, digest: {},
-            }).then((r) => { if (r) { roastCache.set(key, r); console.error("[prefetch] cached:", dwarf.id, tierBucket(ro), p.slice(0, 40)); } }).catch(() => {});
-          }, i++ * 700);
-        }
-      }
-    })
-  ).catch((e) => console.error("[prefetch] failed:", e.message));
+  return roastService.prefetch(prompts);
 }
 if (config.demo && config.apiKey) setTimeout(schedulePrefetch, 3000);
 

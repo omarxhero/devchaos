@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("devchaos", {
   onHoleRun: (cb) => ipcRenderer.on("devchaos:hole-run", (_e, p) => cb(p)),
   onIdePrompt: (cb) => ipcRenderer.on("devchaos:ide-prompt", (_e, p) => cb(p)),
   onListenState: (cb) => ipcRenderer.on("devchaos:listen-state", (_e, p) => cb(p)),
+  onConfigChanged: (cb) => ipcRenderer.on("devchaos:config-changed", (_e, p) => cb(p)),
   isElectron: true,
   // Shader source read via fs (file:// fetch is CORS-blocked in renderers).
   shaderSource: () => require("node:fs").readFileSync(

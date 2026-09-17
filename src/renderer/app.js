@@ -18,9 +18,19 @@ let roastometer = 50;
 let config = { demo: false, breakMinutes: 25, voiceOn: true };
 let hole = null; // overlay-native black hole engine (./hole.js)
 
+function applyConfig(next) {
+  const timingChanged = config.demo !== next.demo || config.breakMinutes !== next.breakMinutes;
+  config = next;
+  if (window.DEVCHAOS_SFX) window.DEVCHAOS_SFX.volume = config.volume ?? 0.7;
+  if (timingChanged && !window.__breaking) window.__resetDeadline?.();
+}
+
 async function boot() {
   if (window.devchaos) {
-    config = await window.devchaos.getConfig();
+    let receivedChange = false;
+    window.devchaos.onConfigChanged?.((next) => { receivedChange = true; applyConfig(next); });
+    const initial = await window.devchaos.getConfig();
+    if (!receivedChange) applyConfig(initial);
     session = await window.devchaos.sessionGet();
     if (session && session.memory) memoryState = session.memory;
   }
@@ -46,6 +56,7 @@ async function boot() {
   startIdleLife();
   setInterval(persistSession, 8000);
   window.devchaos?.onHoleRun?.(() => triggerBreak());
+  window.devchaos?.onBreakEnded?.(() => { if (window.__breaking) breakEnded(); });
 
   // 🎧 IDE listening: visible toggle + captured prompts run the same pipeline.
   // Debounced (800ms); the chip UI is ALSO re-synced from main every 3s, so
@@ -211,7 +222,7 @@ async function reactToPrompt(text, source) {
   updateMoodUI();
 
   // instant score card INSIDE the dialogue
-  chatPush("score", `${scored.score}/10`, scored.label, roastTier);
+  chatPush("score", `${scored.score}/10`, { tier: roastTier }, scored.label);
   if (scored.score <= 1) {
     // total meltdown: alarm + long panic — the dwarf cannot believe this
     window.DEVCHAOS_SFX?.play("alarm", { volume: 0.8 });
@@ -236,7 +247,7 @@ async function reactToPrompt(text, source) {
 
   const roastDiv = chatPush("dwarf", "");
   typeInto(roastDiv, line);            // typewriter + voice in the panel
-  quip(shorten(line), canned.maybeLebanese(0.18));  // + quip bubble over the dwarf
+  quip(shorten(line), canned.maybeLebanese(0.18, dwarf.id, roastTier));  // + quip bubble over the dwarf
 
   if (refactored) showDocBox(refactored);
   fireTriggers();
@@ -463,7 +474,6 @@ function triggerBreak() {
 
   // Fallback: old fullscreen break window (if overlay WebGL is unavailable).
   window.devchaos?.breakRequest();
-  window.devchaos?.onBreakEnded(() => breakEnded());
 }
 
 function breakEnded() {

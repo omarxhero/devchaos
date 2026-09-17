@@ -5,6 +5,8 @@
 
 "use strict";
 
+import { LEBANESE_GUIDE } from "./lebanese.js";
+
 const TIMEOUT_MS = 12000;
 
 const PROVIDERS = {
@@ -29,7 +31,7 @@ const PROVIDERS = {
     buildBody: (system, user, jsonSchema) => ({
       model: "deepseek-chat",
       messages: [
-        { role: "system", content: system + '\nRespond ONLY with JSON matching: {"roast": string (max 2 short sentences), "refactored_prompt": string, "label": string}' },
+        { role: "system", content: system + '\nRespond ONLY with JSON matching this schema: ' + JSON.stringify(jsonSchema) },
         { role: "user", content: user },
       ],
       temperature: 1.0,
@@ -84,9 +86,9 @@ async function roast(config, { prompt, scored, dwarf, roastometer, digest }) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const body = provider.buildBody(
-      dwarf.system,
+      `${dwarf.system}\n\n${LEBANESE_GUIDE}`,
       buildUserMessage({ prompt, scored, dwarf, roastometer, digest }),
-      config.provider === "gemini" ? RESPONSE_SCHEMA : null,
+      RESPONSE_SCHEMA,
     );
     const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
@@ -122,9 +124,8 @@ Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).
   try {
     const body = provider.buildBody(
       system, user,
-      config.provider === "gemini" ? { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" } } }, required: ["ideas"] } : null,
+      { type: "OBJECT", properties: { ideas: { type: "ARRAY", items: { type: "STRING" }, minItems: 3, maxItems: 3 } }, required: ["ideas"] },
     );
-    if (config.provider !== "gemini") body.messages[1] = { role: "user", content: user + '\nRespond ONLY with JSON: {"ideas": [3 strings]}' };
     const res = await fetch(provider.url(config.model || "gemini-3.6-flash", config.apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(config.provider === "deepseek" ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
@@ -133,8 +134,9 @@ Machine diagnosis: ${scored?.score ?? "?"}/10, issues: ${(scored?.issues || []).
     });
     if (!res.ok) return null;
     const parsed = provider.parse(await res.json());
-    const list = (parsed?.ideas || []).filter((x) => typeof x === "string" && x.trim()).slice(0, 3);
-    return list.length ? list.map((x) => x.trim()) : null;
+    const list = parsed?.ideas;
+    if (!Array.isArray(list) || list.length !== 3 || !list.every((x) => typeof x === "string" && x.trim())) return null;
+    return list.map((x) => x.trim());
   } catch { return null; } finally { clearTimeout(timer); }
 }
 

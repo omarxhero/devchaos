@@ -20,10 +20,10 @@
   <h1>DEVCHAOS SETTINGS</h1>
   <label>AI PROVIDER</label>
   <select id="provider">
-    <option value="gemini">Gemini Flash (free tier)</option>
-    <option value="deepseek">DeepSeek (dirt cheap)</option>
+    <option value="gemini">Gemini Flash</option>
+    <option value="deepseek">DeepSeek</option>
   </select>
-  <label>API KEY (paste yours — stays on this PC only)</label>
+  <label>API KEY (stored locally; sent to selected provider)</label>
   <input id="apiKey" type="password" placeholder="paste key here — leave empty to keep current">
   <label>VOICE</label>
   <select id="voiceOn"><option value="on">ON — dwarfs speak</option><option value="off">OFF — silent mode</option></select>
@@ -38,31 +38,56 @@
   <script>
     const $ = (id) => document.getElementById(id);
     let savedKey = "";
+    let ready = false, busy = false;
     window.devchaos.getConfig().then((c) => {
       $("provider").value = c.provider || "gemini";
       $("voiceOn").value = c.voiceOn === false ? "off" : "on";
       $("volume").value = typeof c.volume === "number" ? c.volume : 0.7;
       savedKey = c.apiKey === "SET" ? "•••••••• (saved)" : "";
       if (savedKey) { $("apiKey").placeholder = "key already saved — type to replace"; }
-    });
+      ready = true;
+    }).catch(() => { $("save-msg").textContent = "Could not load settings. Reopen this window."; });
+    function setBusy(on) {
+      busy = on;
+      $("save").disabled = on;
+      $("test").disabled = on;
+    }
     $("save").onclick = async () => {
+      if (!ready || busy) return;
+      setBusy(true);
       const patch = { provider: $("provider").value, voiceOn: $("voiceOn").value === "on", volume: Number($("volume").value) };
       const key = $("apiKey").value.trim();
-      if (key) patch.apiKey = key; // empty = keep existing (main ignores empty)
-      await window.devchaos.setConfig(patch);
-      $("save-msg").textContent = "Saved ✓ " + (key ? "new key stored." : (savedKey ? "existing key kept." : "no key yet — roasts stay canned."));
+      if (key) patch.apiKey = key;
+      try {
+        const result = await window.devchaos.setConfig(patch);
+        if (!result?.ok) {
+          $("save-msg").textContent = result?.error || "Settings were not saved.";
+          return;
+        }
+        if (key && key !== "SET") savedKey = "saved";
+        $("apiKey").value = "";
+        if (savedKey) $("apiKey").placeholder = "key already saved — type to replace";
+        $("save-msg").textContent = "Saved ✓ " + (savedKey ? "key stored locally." : "no key yet — roasts stay canned.");
+      } catch {
+        $("save-msg").textContent = "Save could not be confirmed. Reopen settings before retrying.";
+      } finally { setBusy(false); }
     };
     $("test").onclick = async () => {
-      $("result").textContent = "asking the AI…";
-      const res = await window.devchaos.roast({
-        prompt: "fix it",
-        scored: { score: 2, label: "PURE LAZINESS", issues: [] },
-        dwarf: { id: "grumpy", name: "Grumpy", job: "THE ROASTER", system: "You are Grumpy, a brutally funny senior dev. Roast in max 2 short sentences." },
-        roastometer: 80, digest: {},
-      });
-      $("result").textContent = res
-        ? (res.source === "llm" ? "LIVE LLM ✓\n" + res.roast : res.source === "cache" ? "FROM CACHE ✓\n" + res.roast : "? " + JSON.stringify(res))
-        : "CANNED (no key / offline) — the app still works, roasts just repeat.";
+      if (!ready || busy) return;
+      setBusy(true);
+      $("result").textContent = "Testing saved settings (unsaved edits are ignored)…";
+      try {
+        const [{ analyze }, { get }] = await Promise.all([import('../brain/scorer.js'), import('../brain/personalities.js')]);
+        const res = await window.devchaos.roast({
+          prompt: "fix it", scored: analyze("fix it"), dwarf: get("grumpy"),
+          roastometer: 80, digest: {}, bypassCache: true,
+        });
+        $("result").textContent = res
+          ? "LIVE LLM ✓ (saved settings)\n" + res.roast
+          : "CANNED — saved provider unavailable (key, network, quota, or response error). Offline roasts still work.";
+      } catch {
+        $("result").textContent = "Test failed. Offline roasts still work.";
+      } finally { setBusy(false); }
     };
   </script>
 </body>

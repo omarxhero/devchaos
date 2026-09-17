@@ -125,6 +125,7 @@ function analyze(prompt) {
   for (const w of words) {
     if (TYPOS[w]) { typos.push({ word: w, fix: TYPOS[w] }); continue; }
     if (typos.length >= 3) break;
+    if (COMMON_WORDS.has(w)) continue;
     for (const common of COMMON_WORDS) {
       if (common.length >= 5 && common[0] === w[0] && editDistanceAtMost1(w, common)) {
         typos.push({ word: w, fix: common });

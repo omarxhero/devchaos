@@ -7,6 +7,17 @@
 
 "use strict";
 
+let audioConfig = { voiceOn: true, volume: 0.7 };
+let receivedConfig = false;
+function applyAudioConfig(next) {
+  audioConfig = next;
+  if (window.DEVCHAOS_SFX) window.DEVCHAOS_SFX.volume = next.volume ?? 0.7;
+}
+window.devchaos?.onConfigChanged?.((next) => { receivedConfig = true; applyAudioConfig(next); });
+const audioReady = window.devchaos?.getConfig().then((next) => {
+  if (!receivedConfig) applyAudioConfig(next);
+}).catch(() => {});
+
 const params = new URLSearchParams(window.location.search);
 // Timeline params from main: growSec = pre-window, recedeSec = break length.
 const GROW_SEC = Number(params.get("growSec") || 45);
@@ -110,7 +121,8 @@ function showBubble(text) {
   const vp = { waveform: "sine", baseFreq: 240, pitch: 0.82, speed: 0.62, gain: 0.8 };
   const t = setInterval(() => {
     if (i >= text.length) return clearInterval(t);
-    window.DEVCHAOS_VOICE?.blip(text[i++], vp);
+    const ch = text[i++];
+    if (audioConfig.voiceOn !== false) window.DEVCHAOS_VOICE?.blip(ch, vp);
   }, 60);
 }
 
@@ -340,7 +352,8 @@ function resize() {
   }
 }
 
-initGL().catch((e) => console.error("shader init failed:", e)).finally(() => {
+initGL().catch((e) => console.error("shader init failed:", e)).finally(async () => {
+  await audioReady;
   requestAnimationFrame(render);
   run().catch(console.error);
 });

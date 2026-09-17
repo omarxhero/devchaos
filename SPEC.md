@@ -4,6 +4,16 @@ Zaka LB fun hackathon, Sep 14–17 2026. Pixel dwarfs live on your screen over y
 VS Code, roast your bad prompts, teach you good ones (Doc), and enforce rest breaks
 with a slowly growing WebGL black hole (Sleepy).
 
+## Status of this document
+
+This is the original design sketch, not an exact description of the current build.
+The accepted primary break effect is transparent and overlay-native, with no
+"SLEEP. NOW." text overlay; the separate break window is a legacy fallback.
+Voice uses per-character oscillator gibberish, not natural-language TTS.
+The selected LLM provider has a 12-second timeout; providers do not auto-failover.
+Current cache, privacy and verification behavior are documented in [README.md](README.md).
+Do not rebuild obsolete sketch features below as if they were missing requirements.
+
 ## Spine
 
 PROMPT → scorer → {stamp + mood + memory + triggers} → dwarf state → {bubble + voice}

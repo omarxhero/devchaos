@@ -14,16 +14,16 @@ Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun 
   garbage, Sleepy owns the black hole, Sneezy sneezes on your prompt and grades the
   mangled remains, Bashful whispers his critique, Dopey answers the wrong question
   thrilled. The score is always the same deterministic engine — only the delivery changes.
-- **🎧 IDE listener (the magic).** Toggle the headphones and the dwarf hears every prompt
+- **🎧 IDE listener (the magic).** Toggle the headphones and the dwarf reacts to detected prompts
   you type to your real AI agent (VS Code, Zed, Cursor, ZCode, Claude Code, browser AI
   chats). Type once — the dwarf reacts automatically. Code lines, URLs and terminal
-  commands are filtered; Shift+Enter stays inside the message. RAM-only, opt-in, visible
-  when armed, nothing ever written to disk.
-- **The black hole.** As your 2-hour work deadline approaches, a physically-lensed black
-  hole (live geodesic shader over a capture of your real screen) spawns at a random spot,
-  grows, tumbles in 3D, devours the screen at the deadline, then recedes while you rest.
-- **Roastometer** — slide between WHOLESOME and SAVAGE and the same prompt gets re-roasted
-  at the new intensity. Full savage puts sunglasses on the dwarf.
+  commands are filtered; Shift+Enter stays inside the message. Opt-in with a visible
+  indicator. Accepted prompts enter local session history; see the privacy notes below.
+- **The black hole.** When your work timer expires (25 minutes on a fresh profile), a
+  gravitational-lens shader over a capture of your real screen spawns at a random spot,
+  grows, tumbles in 3D, devours the screen, then recedes while you rest.
+- **Roastometer** — slide between WHOLESOME and SAVAGE to set the next roast's intensity.
+  Full savage puts sunglasses on the dwarf.
 - **Living creatures** — per-dwarf motion personalities, idle quips, AFK naps,
   storms-off-after-3-lazy-prompts (Dopey replaces Grumpy), mood meter (your prompt
   quality is his diet), drag-and-drop, Leaderboard of Shame.
@@ -64,7 +64,7 @@ src/renderer/   overlay UI (dwarf engine, dialogue panel, hats, hole canvas), br
                 hole.js — the overlay-native black hole engine (transparent WebGL2 +
                 alpha mask so the lens floats over your real work)
 src/brain/      scorer.js (deterministic <100ms), personalities, canned roasts + Lebanese
-                lines, memory/mood, LLM adapter (Gemini Flash / DeepSeek, 5s timeout → canned)
+                lines, memory/mood, LLM adapter (Gemini / DeepSeek, 12s timeout → canned)
 src/audio/      blip-voice synth (per-dwarf waveforms), jsfxr SFX presets
 src/shaders/    blackhole port (geodesic-traced, live disk inclination/roll uniforms)
 tools/          art pipeline (cutout/classify), ide-listener.ps1 (keyboard hook),
@@ -82,16 +82,31 @@ the LLM layer is an upgrade, not a dependency.
 ## Tests
 
 ```sh
-npm test                 # scorer calibration + roast banks + memory + mood
+npm test                 # scorer, content, cache, persistence, listener lifecycle, contracts
 node src/main/gates.cjs  # IDE-window and natural-language gate unit checks
+npm run test:listener    # Windows: compile hook class; synthetic context tests, no live capture
+npm run test:smoke       # Electron installed: isolated profile, mocked provider, listener off
 ```
 
 ## Privacy (the honest version)
 
-The IDE listener is a local keyboard hook that only keeps the line you just typed until
-Enter, only while an IDE/AI window is focused, only when you armed it (visible 🎧 state),
-never persists anything, and sends nothing anywhere except the optional roast call.
-Toggle it off any time; it never runs by default.
+The listener is Windows-only and starts disabled on a fresh profile. Your listening
+preference is restored on later launches. While enabled, the keyboard hook buffers
+keystrokes globally in RAM; main applies the window and natural-language gates after
+Enter. The buffer is discarded on foreground-window changes and observed title changes.
+This is a heuristic, not a guarantee that every AI prompt is detected or every sensitive
+field is excluded. Synthetic tests cover reset logic, not live Windows event delivery.
+
+Accepted prompts enter the same local history as manually submitted prompts and are
+persisted in `session.json` under Electron's user-data directory. Gate diagnostics omit
+captured text and window metadata. Older logs from earlier versions are not scrubbed.
+When an API key is configured, accepted prompts and a session summary may be sent to
+the selected provider. Disable listening for sensitive work, or keep the app offline
+without a key. Keys are stored in local plaintext configuration, not encrypted; the
+settings UI masks saved keys and never returns their value to the renderer.
+
+The screen capture used for the black hole is processed locally. Do not commit
+user-data, session files, credentials, or diagnostic screenshots.
 
 ## Credits & licenses
 

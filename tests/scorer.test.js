@@ -24,6 +24,13 @@ test("'make it work please' is vague", () => {
   assert.ok(r.score <= 4, `score ${r.score}`);
 });
 
+test("correct dictionary words are not typos", () => {
+  assert.deepEqual(analyze("please please").typos, []);
+  assert.equal(analyze("please please").score, 9);
+  assert.deepEqual(analyze("there their these thing think").typos, []);
+  assert.ok(analyze("functoin").typos.some((t) => t.fix === "function"));
+});
+
 test("known typo detected", () => {
   const r = analyze("can you please rewrite this functoin so it handles the null case in user records");
   assert.ok(r.typos.some((t) => t.word === "functoin"), JSON.stringify(r.typos));

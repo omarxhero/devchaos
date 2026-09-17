@@ -3,6 +3,8 @@
 
 "use strict";
 
+import { LEBANESE_BANK } from "./lebanese.js";
+
 const BANK = {
   doc: {
     savage: [
@@ -157,16 +159,9 @@ const TRIGGERS = {
 };
 
 // Lebanese spice — text bubbles only, voice stays gibberish.
-const LEBANESE = [
-  "ya 3ammi... 'fix it'?? WALLA??",
-  "shu had el prompt habibi, 3eib.",
-  "ken fi grades 3a prompt? ma fi. zero. zero grades.",
-  "hayda prompt? hayda mas2ale souriye.",
-  "btehke seriously aw la2?",
-  "alla yehmik, wsolna la 2/10.",
-  "shu hal fashal ya zalame.",
-  "tfaddal, 3ala 2a3deetak, 3meltellek refactor. bikaffi teshkor.",
-];
+const LEBANESE = Object.values(LEBANESE_BANK).flatMap((bank) =>
+  Object.values(bank).flatMap((entries) => entries.map((entry) => entry.text))
+);
 
 function pickRoast(dwarfId, tier) {
   const list = (BANK[dwarfId] && BANK[dwarfId][tier]) || BANK.grumpy[tier] || BANK.grumpy.medium;
@@ -180,8 +175,11 @@ function pickTrigger(key, vars = {}) {
   return line;
 }
 
-function maybeLebanese(chance = 0.18) {
-  return Math.random() < chance ? LEBANESE[Math.floor(Math.random() * LEBANESE.length)] : null;
+function maybeLebanese(chance = 0.18, dwarfId = "grumpy", tier = "medium") {
+  if (Math.random() >= chance) return null;
+  const bank = LEBANESE_BANK[dwarfId] || LEBANESE_BANK.grumpy;
+  const list = bank[tier] || bank.medium;
+  return list[Math.floor(Math.random() * list.length)].text;
 }
 
 

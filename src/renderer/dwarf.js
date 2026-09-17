@@ -159,14 +159,15 @@ class DwarfEngine {
     const down = (e) => {
       this.dragging = true;
       const r = this.el.getBoundingClientRect();
-      offsetX = e.screenX - r.left;
+      offsetX = e.clientX - r.left;
       this.el.style.cursor = "grabbing";
       if (window.devchaos) window.devchaos.passthrough(false);
     };
     const move = (e) => {
       if (!this.dragging) return;
-      this.el.style.left = (e.screenX - offsetX) + "px";
-      this.el.style.top = (e.screenY - 60) + "px";
+      this.x = Math.round(e.clientX - offsetX);
+      this.el.style.left = this.x + "px";
+      this.el.style.top = (e.clientY - 60) + "px";
       this.el.style.bottom = "auto";
     };
     const up = () => {

