@@ -17,7 +17,9 @@ export const HoleEngine = {
 };
 
 const AREA_MIN = 0.0045;
-const AREA_MAX = 0.3000;
+// Includes the 3.2x soft mask edge and 0.25 shader radius scale:
+// about 65% visible footprint on a 16:9 screen at peak, including edge clipping.
+const AREA_MAX = 1.1700;
 const MAX_DPR = 1.6;
 
 const HOLE = HoleEngine;
@@ -52,6 +54,7 @@ export async function initHole(canvasEl, videoEl) {
   const raw = window.devchaos ? window.devchaos.shaderSource() : "";
   const patched = raw
     .replace("#define SIZE_MODE MODE_DEMO", "#define SIZE_MODE MODE_TOKENS")
+    .replace("float live = tokenLevel();", "float live = u_progress;")
     .replace("const float TOKEN_AREA_MIN = 0.0100;", `const float TOKEN_AREA_MIN = ${AREA_MIN.toFixed(4)};`)
     .replace("const float TOKEN_AREA_MAX = 0.5000;", `const float TOKEN_AREA_MAX = ${AREA_MAX.toFixed(4)};`)
     .replace("float shield = vis * smoothstep(WORK_AREA, WORK_AREA + 0.18, yUp);", "float shield = vis;")
@@ -81,6 +84,7 @@ uniform vec4 iPreviousCursorColor;
 uniform vec2 iBlackholeCenter;
 uniform vec2 u_holeCenter;
 uniform float u_holeMaskRadius;
+uniform float u_progress;
 out vec4 outColor;
 ${patched}
 void main() {
@@ -106,6 +110,7 @@ void main() {
     blackholeCenter: gl.getUniformLocation(program, "iBlackholeCenter"),
     holeCenter: gl.getUniformLocation(program, "u_holeCenter"),
     holeMaskRadius: gl.getUniformLocation(program, "u_holeMaskRadius"),
+    progress: gl.getUniformLocation(program, "u_progress"),
     diskIncl: gl.getUniformLocation(program, "DISK_INCL"),
     diskRoll: gl.getUniformLocation(program, "DISK_ROLL"),
   };
@@ -172,13 +177,15 @@ function maskRadius(g) {
 }
 
 function centerFor(g, t) {
-  // Random spawn point anywhere in a safe margin, drifting home toward center
-  // as it grows, plus a slow lissajous float so it never sits still.
-  const fx = 0.035 * Math.sin(t * 0.43 + 1.7);
-  const fy = 0.028 * Math.cos(t * 0.31 + 0.4);
+  // Wide, slow orbits while small; keep the peak centered to preserve its footprint.
+  const room = (1 - g) * (1 - g);
+  const phaseX = HOLE._seed[0] * Math.PI * 2;
+  const phaseY = HOLE._seed[1] * Math.PI * 2;
+  const fx = (0.035 + 0.25 * room) * Math.sin(t * 0.10 + phaseX);
+  const fy = (0.028 + 0.23 * room) * Math.cos(t * 0.08125 + phaseY);
   return [
-    HOLE._seed[0] + (0.45 - HOLE._seed[0]) * g + fx,
-    HOLE._seed[1] + (0.48 - HOLE._seed[1]) * g + fy,
+    0.45 + (HOLE._seed[0] - 0.5) * 0.1 * room + fx,
+    0.48 + (HOLE._seed[1] - 0.5) * 0.1 * room + fy,
   ];
 }
 
@@ -199,7 +206,9 @@ export function runHoleCycle({ growSec = 8, recedeSec = 12, onPeak, onRecedeStar
   // Random spawn: anywhere in the middle 60% of the screen.
   HOLE._seed = [0.2 + Math.random() * 0.6, 0.22 + Math.random() * 0.56];
   HOLE._tumblePhase = Math.random() * Math.PI * 2;
-  HOLE._tumbleW = (Math.PI * 2) / Math.max(14, growSec + recedeSec); // ~one tumble per cycle
+  // Cap the tilt cycle at 40s so long breaks keep visibly tumbling instead of
+  // freezing into a near-still image; short cycles still get one full sweep.
+  HOLE._tumbleW = (Math.PI * 2) / Math.max(14, Math.min(40, growSec + recedeSec));
   const t0 = performance.now();
   startHum();
   startCapture(); // async; fallback texture covers until frames arrive
@@ -309,6 +318,8 @@ function render(now, progress) {
   gl.uniform4fv(locations.previousCursorColor, token);
   gl.uniform2f(locations.blackholeCenter, cx, cy);
   gl.uniform2f(locations.holeCenter, cx, cy);
+  // One continuous value drives geometry and mask; cursor tokens quantize to 251 sizes.
+  gl.uniform1f(locations.progress, g);
   gl.uniform1f(locations.holeMaskRadius, maskRadius(g));
   gl.uniform1f(locations.diskIncl, incl);
   gl.uniform1f(locations.diskRoll, roll);

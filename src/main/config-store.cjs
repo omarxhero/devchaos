@@ -7,13 +7,14 @@ function configPatch(current, patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new Error("Invalid settings");
   const next = { ...current };
   const validators = {
-    provider: (v) => v === "gemini" || v === "deepseek",
-    model: (v) => typeof v === "string" && /^[\w.-]{1,100}$/.test(v),
+    provider: (v) => ["gemini", "deepseek", "openrouter"].includes(v),
+    model: (v) => typeof v === "string" && v.length <= 150 && /^[\w-][\w.-]*(?:\/[\w-][\w.:-]*)?$/.test(v),
     apiKey: (v) => typeof v === "string" && v.length <= 1024,
     volume: (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1,
     voiceOn: (v) => typeof v === "boolean",
     demo: (v) => typeof v === "boolean",
     breakMinutes: (v) => typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 1440,
+    breakDurationMinutes: (v) => Number.isInteger(v) && v >= 1 && v <= 120,
   };
   for (const [key, value] of Object.entries(patch)) {
     if (!Object.hasOwn(validators, key) || !validators[key](value)) throw new Error("Invalid settings");
@@ -27,6 +28,9 @@ function configPatch(current, patch) {
   if (patch.provider !== undefined && patch.provider !== current.provider) {
     const key = typeof patch.apiKey === "string" ? patch.apiKey.trim() : "";
     if (!key || key === "SET") throw new Error("A new API key is required when switching providers.");
+    if (patch.model === undefined) next.model = {
+      gemini: "gemini-3.6-flash", deepseek: "deepseek-chat", openrouter: "deepseek/deepseek-v4.1-flash",
+    }[patch.provider];
   }
   return next;
 }

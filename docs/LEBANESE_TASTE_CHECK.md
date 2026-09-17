@@ -1,78 +1,54 @@
-# Lebanese Roast Content — Taste Check (Omar only)
+# Lebanese Arabizi dialogue — candidate taste check
 
-The vocabulary below references entries from the user-provided `lebanese_dialect_dataset.jsonl`; IDs trace vocabulary, not the newly written punchlines.
-The 21 dwarf lines are already wired into the local build. **Native-speaker taste approval is pending**; this is a candidate set, not a linguistic certification.
-The raw dataset is NOT in the repo. Its provenance and licensing have not been comprehensively audited, and many expressions are shared across regional dialects.
+## Current behavior
 
----
+The main dialogue language is Lebanese Arabizi, **not English with an occasional Lebanese phrase**.
 
-## 1. What changed in the app
+- Model roast requests require the entire roast and optional verdict label in Lebanese Arabizi, including when input is English. Technical terms can remain English. This is a model instruction, not a runtime dialect detector.
+- All seven dwarfs have Arabizi primary offline replies across all three tiers, plus translated idle quips, entrances, main-overlay status dialogue and triggers.
+- The 21 secondary bubble lines are also Arabizi. Their existing 18% probability only controls the extra bubble line, not the main language.
+- Copy-ready model rewrites and Doc ideas request clean English and explicit placeholders for unknown facts. Offline templates preserve the user's original text and append English instructions; they do not translate arbitrary input.
+- Audio remains synthesized game-gibberish. No TTS was added.
+- Only IDE input is graded; the exact original text is scored for every dwarf, including Sneezy. The manual box is ordinary Arabizi conversation with separate instructions, bounded per-dwarf history and simple offline replies, not canned roasts. It does not update prompt statistics or automatically rewrite messages.
+- The scoring algorithm, motion, timers, listener behavior and approved overlay-native black-hole visuals were not redesigned.
+- The legacy separate break-window fallback remains unchanged, including its old English text; it is not the accepted primary overlay experience.
 
-| Where | What happens now |
-|---|---|
-| **Live LLM roasts** (key working) | The roast request now carries a small (tested at no more than 2KB) "Lebanese spice" guide: at most **one** short Arabizi phrase per roast, English punchline, no greeting-stacking, no crisis/politics jokes, refactored prompt stays clean English. Dwarf personalities stay authoritative — Doc still teaches, Grumpy still grumbles. |
-| **Secondary bubbles** (live or offline roasts) | The 8 old invented Lebanese bubbles are **replaced** by 21 curated lines: **one per dwarf per tier** (7 × mild/medium/savage). The app picks a line matching whoever is on screen and how savage the roast is, so Sleepy never delivers Happy's hype. Chance unchanged (18% of roasts get a Lebanese bubble). |
-| **Voice** | Gibberish per-character synth; there is no natural-language TTS. |
+The local dataset informed adapted vocabulary/style. It was not used to train or fine-tune a model, and is not loaded wholesale at runtime. The raw JSONL remains outside the repository and was not sent to the provider. Source IDs in `src/brain/lebanese.js` trace nine vocabulary entries, not authorship of the newly written jokes. Dataset provenance/licensing and native authenticity are not comprehensively audited.
 
-The old bubble set was replaced to keep jokes about prompt quality rather than nationality or personal worth. Register and naturalness still need native-speaker review; no blanket frequency or word-order claim is made here.
+## Offline candidates from the actual bank
 
-## 2. Selected vocabulary offered to the LLM
+**Grumpy:** Ya 3amme, hayda prompt aw 7azzeira? Ana lezem khammen shu baddak?
 
-| Phrase | Means | Dataset ID |
-|---|---|---|
-| Yalla | come on / let's go | leb-slang-001 |
-| 3anjad | seriously / really | leb-slang-004 |
-| Ma3lesh | no worries / never mind | leb-slang-006 |
-| Khalas | enough / done | leb-slang-007 |
-| Ya3ne | I mean / so-so | leb-slang-010 |
-| Basita | no problem / it's simple | leb-slang-017 |
-| Ya 3amme | oh man (exasperated sigh) | leb-ban-003 |
-| Bravo 3alayk | well done (sincere **or** ironic — the LLM is told eyebrows decide) | leb-ban-014 |
-| Merci ktir | thanks a lot | leb-cs-002 |
+**Doc:** L-fekra mawjoude, bass na2esna details. Shu 3am bisir w shu lezim ysir?
 
-Deliberately **excluded**: `Toqborni / Ya 2albi / Ya 7ayete` (romantic/family endearments — weird from a dwarf roasting your code), `3ayb 3alayk` (shame-based framing), `Bukra inshallah / Meche l 7al / wasta / exchange-rate` jokes (crisis/political territory — the hackathon is a fun demo, not a satire set), and The961 youth slang (`bakkalto`, `khaze2`, `mukheef`… — register couldn't be verified well enough to put on stage). The register of `Zahhit` and `Wozze` is uncertain, so they're left out too.
+**Happy:** Yalla, ballashna! Halla2 nzid details w menzabeta!
 
-## 3. The 21 offline lines — review these
+**Sleepy:** ...l-prompt baddo context... w ana badde mkhadde...
 
-**Doc** (teacher)
-- mild: *"Basita. One concrete example makes the task easier to teach."*
-- medium: *"Yalla, name the target. A good prompt gives the reader a map."*
-- savage: *"3anjad? Even a blank exam has a field for the subject."*
+**Sneezy:** ACHOO! Ya wayle, ba3tart l-7rouf! Halla2 min byelme l-context?
 
-**Grumpy** (roaster)
-- mild: *"Ya3ne... I can work with this. Don't make me repeat the compliment."*
-- medium: *"Ya 3amme, 'it' is doing all the work in this prompt."*
-- savage: *"Khalas. The rubber duck filed a complaint about missing context."*
+**Bashful:** Ma badde za33lak... bass l-AI ma bya3ref yi2ra afkar... sorry!
 
-**Happy** (hype)
-- mild: *"Bravo 3alayk! A prompt worth cheering for!"*
-- medium: *"Yalla! We have WORDS! Next achievement: SPECIFICS!"*
-- savage: *"Bravo 3alayk! So much confidence, so little specification!"*
+**Dopey:** Baddak l-bug yrou7? 7attetlo shanta! Sar jehiz lal-safar!
 
-**Sleepy**
-- mild: *"Khalas... good work... let your eyes rest too..."*
-- medium: *"Ya3ne... the prompt needs context... I need a pillow..."*
-- savage: *"3anjad... even my dreams have clearer requirements..."*
+Full primary bank: `src/brain/canned.js`. Secondary bank: `src/brain/lebanese.js`. Idle quips: `src/brain/personalities.js`.
 
-**Sneezy**
-- mild: *"Ma3lesh, ACHOO! Your prompt survived me!"*
-- medium: *"Ya 3amme, ACHOO! I scattered the letters... sorry about the mess!"*
-- savage: *"Khalas! ACHOO! I sneezed out more detail than this prompt contains!"*
+## Verification and real-provider evidence
 
-**Bashful**
-- mild: *"Merci ktir... for the context... it helps. Sorry, was that too loud?"*
-- medium: *"Ma3lesh... could we add one example? A tiny one? Sorry..."*
-- savage: *"3anjad... the requirements are playing hide-and-seek... sorry, they're winning..."*
+Current routing verification (2026-09-17):
+- 35 Node tests passed, including separate Gemini/DeepSeek conversation contracts, input/history validation, offline fallback and source-based queued routing.
+- Actual Electron renderer/preload/main smoke passed: manual “fix it” stays conversation, follow-up history is sent, offline chat leaves prompt memory and Doc's target unchanged, synthetic IDE events are graded, and Sneezy sends/scores unchanged input. Existing cache/settings/offline-roast checks also pass. Isolated profile, mocked provider, listener off.
+- Gate self-test, modified JavaScript syntax checks and `git diff --check` passed. No live provider calls or keyboard hook were used for this routing change.
 
-**Dopey**
-- mild: *"Yalla! I brought my thinking hat! It has snacks in it!"*
-- medium: *"Basita! I put the bug in a jar! Why is the code still broken?"*
-- savage: *"Khalas! I deleted the word 'bug'! We're finished! ...Right?"*
+Historical language-validation evidence below was recorded before the chat split, not reproduced by the routing tests. Earlier embedded listener C# compilation and synthetic context-reset checks passed without a live hook.
 
-## 4. What I need from you
+Earlier adapter probe using the saved Gemini configuration and generic prompts only:
+- Grumpy: no adapter result after 639 ms; Arabizi canned fallback available.
+- Doc: live result after 8,429 ms: "El-score 3/10. 2arayt jemal 3a 2anninet shampoo fiya details akhtar men hayda l-prompt; na2ssak context, l-lougha, w l-constraints."
+- Happy: no adapter result after 327 ms; Arabizi canned fallback available.
 
-1. **Phrase check**: any of the 9 vocab entries that read wrong to a native ear? (Especially `Bravo 3alayk` word order and `Ya 3amme` vs `Ya 3ammi` spelling — your dataset uses both.)
-2. **Line check**: mark any of the 21 lines "no" and I rewrite just those.
-3. **Amount check**: one phrase max per live roast, 18% chance offline — too much / too little / right?
+Raw-response follow-up established the cause of the null results: HTTP 429 RESOURCE_EXHAUSTED — the Gemini free tier allows 20 requests/minute for this model and the account was exhausted by testing. This is external rate limiting, not an adapter defect. The designed behavior on 429 is a straight fallback to the local Arabizi bank (no retry/backoff, per the audited no-retry-theater contract), so a quota-limited demo still speaks Arabizi. Earlier direct-provider probes also produced Arabizi, but one took 25.9 seconds: the app's 12-second timeout is unchanged. Do not claim every live call succeeds or that latency is solved.
 
-The dataset stays the single source on your disk; the repo only carries the curated distillation above with IDs.
+## Acceptance boundary
+
+These tests establish wiring and fallback behavior, not native Lebanese fluency, comedy quality or pixel-perfect visual layout. The new live Doc sample still has awkward phrasing; native-speaker taste review remains pending. Review sentence naturalness, readability of spelling, personality distinction, and whether savage jokes target the prompt rather than the person. No blanket linguistic certification is claimed.

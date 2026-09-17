@@ -4,16 +4,25 @@
   <meta charset="utf-8">
   <title>DevChaos Settings</title>
   <style>
-    body { font-family: "Segoe UI", sans-serif; background: #14101a; color: #eee; margin: 0; padding: 18px; }
-    h1 { font-size: 17px; letter-spacing: 1px; color: #ffd94a; margin: 0 0 14px; }
-    label { display: block; font-size: 11px; font-weight: bold; color: #9dffb0; margin: 12px 0 4px; letter-spacing: 1px; }
-    input, select { width: 100%; box-sizing: border-box; padding: 8px; background: #0c0a10; color: #fff; border: 2px solid #444; border-radius: 4px; font-size: 13px; }
-    input:focus, select:focus { border-color: #ffd94a; outline: none; }
+    body { font-family: "Segoe UI", sans-serif; background: #ffffff; color: #20382c; margin: 0; padding: 18px; }
+    h1 { font-size: 17px; letter-spacing: 1px; color: #176b45; margin: 0 0 14px; }
+    label { display: block; font-size: 11px; font-weight: bold; color: #176b45; margin: 12px 0 4px; letter-spacing: 1px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 8px; background: #ffffff; color: #20382c; border: 2px solid #bfd2c4; border-radius: 4px; font-size: 13px; }
+    input:focus, select:focus { border-color: #176b45; outline: none; }
     .row { display: flex; gap: 10px; margin-top: 18px; }
-    button { flex: 1; padding: 10px; font-weight: 900; letter-spacing: 1px; cursor: pointer; border: 2px solid #ffd94a; background: #ffd94a; color: #14101a; border-radius: 4px; }
-    button.sec { background: transparent; color: #ffd94a; }
-    #result { margin-top: 14px; font-size: 12px; min-height: 40px; color: #9dffb0; white-space: pre-wrap; }
-    #save-msg { color: #9dffb0; font-size: 12px; margin-top: 8px; min-height: 16px; }
+    button { flex: 1; padding: 10px; font-weight: 900; letter-spacing: 1px; cursor: pointer; border: 2px solid #176b45; background: #176b45; color: #ffffff; border-radius: 4px; }
+    button.sec { background: transparent; color: #176b45; }
+    #result { margin-top: 14px; font-size: 12px; min-height: 40px; color: #176b45; white-space: pre-wrap; }
+    #save-msg { color: #176b45; font-size: 12px; margin-top: 8px; min-height: 16px; }
+    input[type="range"] { accent-color: #176b45; }
+    input::placeholder { color: #52665a; opacity: 1; }
+    button:hover { border-color: #104b31; }
+    button:focus-visible { outline: 2px solid #b52b39; outline-offset: 2px; }
+    fieldset { margin: 18px 0 0; padding: 10px 12px 12px; border: 2px solid #bfd2c4; border-radius: 6px; }
+    legend { color: #b52b39; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+    .timing { display: flex; gap: 12px; }
+    .timing > div { flex: 1; min-width: 0; }
+    .hint { color: #52665a; font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
   </style>
 </head>
 <body>
@@ -21,14 +30,25 @@
   <label>AI PROVIDER</label>
   <select id="provider">
     <option value="gemini">Gemini Flash</option>
-    <option value="deepseek">DeepSeek</option>
+    <option value="deepseek">DeepSeek (direct API)</option>
+    <option value="openrouter">OpenRouter — DeepSeek V4.1 Flash</option>
+    <option value="openrouter-union">OpenRouter — Union Alpha</option>
   </select>
   <label>API KEY (stored locally; sent to selected provider)</label>
   <input id="apiKey" type="password" placeholder="paste key here — leave empty to keep current">
+  <p id="key-status" class="hint" role="status">Checking saved key…</p>
   <label>VOICE</label>
   <select id="voiceOn"><option value="on">ON — dwarfs speak</option><option value="off">OFF — silent mode</option></select>
   <label>SFX VOLUME</label>
   <input id="volume" type="range" min="0" max="1" step="0.05">
+  <fieldset>
+    <legend>BLACK HOLE / BREAKS</legend>
+    <div class="timing">
+      <div><label for="breakHours">WORK INTERVAL (HOURS)</label><input id="breakHours" type="number" min="0.0166666667" max="24" step="any"></div>
+      <div><label for="breakDurationMinutes">BREAK LENGTH (MINUTES)</label><input id="breakDurationMinutes" type="number" min="1" max="120" step="1"></div>
+    </div>
+    <p class="hint">The work timer restarts after each break. The black hole grows for the first half of your break, then shrinks for the second half. Peak footprint: about 65% of the screen. Changes apply to the next break; demo mode uses a short preview.</p>
+  </fieldset>
   <div class="row">
     <button id="save">SAVE</button>
     <button id="test" class="sec">TEST ROAST</button>
@@ -39,12 +59,22 @@
     const $ = (id) => document.getElementById(id);
     let savedKey = "";
     let ready = false, busy = false;
+    function showKeyStatus(c) {
+      savedKey = c.apiKey === "SET" ? "saved" : "";
+      $("apiKey").placeholder = savedKey ? "key already saved — type to replace" : "paste key here — leave empty to keep current";
+      $("key-status").textContent = savedKey
+        ? `Key saved for ${c.provider}. The field stays empty for privacy; saving it empty keeps your key.`
+        : `No key saved for ${c.provider}. Paste a key and press SAVE.`;
+    }
+    window.devchaos.onConfigChanged?.(showKeyStatus);
     window.devchaos.getConfig().then((c) => {
-      $("provider").value = c.provider || "gemini";
+      $("provider").value = c.provider === "openrouter" && c.model === "stealth/union-alpha"
+        ? "openrouter-union" : c.provider || "gemini";
       $("voiceOn").value = c.voiceOn === false ? "off" : "on";
       $("volume").value = typeof c.volume === "number" ? c.volume : 0.7;
-      savedKey = c.apiKey === "SET" ? "•••••••• (saved)" : "";
-      if (savedKey) { $("apiKey").placeholder = "key already saved — type to replace"; }
+      $("breakHours").value = (c.breakMinutes ?? 180) / 60;
+      $("breakDurationMinutes").value = c.breakDurationMinutes ?? 30;
+      showKeyStatus(c);
       ready = true;
     }).catch(() => { $("save-msg").textContent = "Could not load settings. Reopen this window."; });
     function setBusy(on) {
@@ -55,7 +85,12 @@
     $("save").onclick = async () => {
       if (!ready || busy) return;
       setBusy(true);
-      const patch = { provider: $("provider").value, voiceOn: $("voiceOn").value === "on", volume: Number($("volume").value) };
+      const patch = { provider: $("provider").value, voiceOn: $("voiceOn").value === "on", volume: Number($("volume").value),
+        breakMinutes: Number($("breakHours").value) * 60, breakDurationMinutes: Number($("breakDurationMinutes").value) };
+      if (patch.provider === "openrouter" || patch.provider === "openrouter-union") {
+        patch.model = patch.provider === "openrouter-union" ? "stealth/union-alpha" : "deepseek/deepseek-v4.1-flash";
+        patch.provider = "openrouter";
+      }
       const key = $("apiKey").value.trim();
       if (key) patch.apiKey = key;
       try {
