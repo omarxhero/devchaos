@@ -73,6 +73,43 @@ test("chat fails locally or safely and offline replies never grade", async (t) =
   for (const message of ["hello", "thanks", "kifak", "fix it"]) assert.doesNotMatch(offlineReply(message, "grumpy"), /\d+\/10/);
 });
 
+test("chat classifies an aborted response body as timeout", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    json: async () => { throw new DOMException("private response omitted", "AbortError"); },
+  }));
+  assert.deepEqual(await chat({ apiKey: "test-only" }, { message: "fix it" }),
+    { source: "offline", error: "timeout" });
+});
+
+test("chat deadlines cover the full body and stay model-specific", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal;
+  let finish;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    signal = options.signal;
+    return { ok: true, json: () => new Promise((resolve, reject) => {
+      finish = () => resolve({ choices: [{ message: { content: '{"reply":"Ahla!"}' } }] });
+      signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    }) };
+  });
+  for (const [model, deadline] of [["stealth/union-alpha", 45000], ["deepseek/deepseek-v4.1-flash", 30000]]) {
+    const pending = chat({ provider: "openrouter", model, apiKey: "test-only" }, { message: "fix it" });
+    await Promise.resolve();
+    t.mock.timers.tick(deadline - 1);
+    assert.equal(signal.aborted, false);
+    t.mock.timers.tick(1);
+    assert.deepEqual(await pending, { source: "offline", error: "timeout" });
+  }
+  const pending = chat({ provider: "openrouter", model: "stealth/union-alpha", apiKey: "test-only" }, { message: "fix it" });
+  await Promise.resolve();
+  t.mock.timers.tick(35000);
+  finish();
+  assert.deepEqual(await pending, { source: "llm", reply: "Ahla!" });
+  t.mock.timers.tick(45000);
+  assert.equal(signal.aborted, false, "completed request clears its deadline");
+});
+
 test("actual input dispatcher routes by source and preserves queued messages and persona", async () => {
   const renderer = fs.readFileSync(new URL("../src/renderer/app.js", import.meta.url), "utf8");
   const source = renderer.slice(renderer.indexOf("const pendingInputs ="), renderer.indexOf("async function converse("));

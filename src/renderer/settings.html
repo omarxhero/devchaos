@@ -118,8 +118,8 @@
           roastometer: 80, digest: {}, bypassCache: true,
         });
         $("result").textContent = res
-          ? "LIVE LLM ✓ (saved settings)\n" + res.roast
-          : "CANNED — saved provider unavailable (key, network, quota, or response error). Offline roasts still work.";
+          ? "LIVE LLM ✓ — this roast succeeded (saved settings). This is not a persistent online status or a chat test.\n" + res.roast
+          : "CANNED — this roast failed (key, network, quota, timeout, or response error). Offline roasts still work.";
       } catch {
         $("result").textContent = "Test failed. Offline roasts still work.";
       } finally { setBusy(false); }

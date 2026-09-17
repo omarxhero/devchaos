@@ -1,8 +1,5 @@
-// LLM adapter: Gemini Flash primary (native JSON mode), DeepSeek backup.
-// Timeout, straight fallback — no retry theater. Caller falls back to canned.
-// 30s: gemini-3.6-flash TTFB measured 4.7-5.0s (Sep 16 2026); OpenRouter
-// stealth/union-alpha measured 20-29s (Sep 17 2026) — every shorter abort
-// (12s, 20s) killed Union Alpha replies at the wire, almost every time.
+// Explicit provider selection; no automatic retries or provider failover.
+// Deadlines include response-body reads, not just receipt of HTTP headers.
 
 "use strict";
 
@@ -157,7 +154,8 @@ async function chat(config, payload) {
   if (!config.apiKey) return { source: "offline", error: "missing_key" };
   const provider = PROVIDERS[config.provider] || PROVIDERS.gemini;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeout = config.provider === "openrouter" && config.model === "stealth/union-alpha" ? 45000 : TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeout);
   try {
     const body = provider.buildBody(conversationSystem(data.dwarf), JSON.stringify({
       history: data.history, message: data.message,
@@ -174,7 +172,11 @@ async function chat(config, payload) {
     }
     let parsed;
     try { parsed = provider.parse(await res.json()); }
-    catch { return { source: "offline", error: "response" }; }
+    catch (error) {
+      if (controller.signal.aborted || error?.name === "AbortError")
+        return { source: "offline", error: "timeout" };
+      return { source: "offline", error: "response" };
+    }
     if (typeof parsed?.reply !== "string" || !parsed.reply.trim()) return { source: "offline", error: "response" };
     return { reply: parsed.reply.trim().slice(0, 1200), source: "llm" };
   } catch (error) {
