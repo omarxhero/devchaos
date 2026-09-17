@@ -13,7 +13,10 @@ from https://github.com/cabbagehao/blackhole-timer (MIT). Full text:
 ## ghostty-blackhole (MIT)
 
 Original shader lineage and demo-mode concepts from
-https://github.com/s13k/ghostty-blackhole (MIT).
+https://github.com/s13k/ghostty-blackhole (MIT). The upstream `demo.gif` is
+included unchanged at `docs/media/demo.gif` and displayed in the README as the
+original effect demo, not a DevChaos recording. Copyright (c) 2026 s13k.
+Full text: `vendor-licenses/ghostty-blackhole-MIT.txt`.
 
 ## jsfxr (Unlicense / public domain)
 
