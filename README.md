@@ -4,7 +4,7 @@ Pixel dwarfs live on your screen, hear what you type to your AI, grade your prom
 roast you in gibberish — and a real gravitational-lens black hole eats your screen when
 it's time to rest.
 
-Built for the **Zaka LB Fun Hackathon 2026** (Functionality · Creativity · Fun · Demo).
+Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun · Demo).
 
 ![tests](https://github.com/omarxhero/devchaos/actions/workflows/ci.yml/badge.svg)
 
