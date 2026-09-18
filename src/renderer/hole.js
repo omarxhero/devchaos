@@ -51,7 +51,10 @@ export async function initHole(canvasEl, videoEl) {
   gl = canvasEl.getContext("webgl2", { alpha: true, antialias: false, depth: false, premultipliedAlpha: true });
   if (!gl) throw new Error("WebGL2 unavailable in overlay");
 
-  const raw = window.devchaos ? window.devchaos.shaderSource() : "";
+  // CRLF-immune: Windows checkouts (autocrlf) hand us \r\n and the multi-line
+  // patch needles below are written with \n — normalize first or they silently
+  // stop matching and the shader fails to compile on strict GPU compilers.
+  const raw = (window.devchaos ? window.devchaos.shaderSource() : "").replace(/\r\n/g, "\n");
   const patched = raw
     .replace("#define SIZE_MODE MODE_DEMO", "#define SIZE_MODE MODE_TOKENS")
     .replace("float live = tokenLevel();", "float live = u_progress;")
