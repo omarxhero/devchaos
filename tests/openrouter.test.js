@@ -34,6 +34,7 @@ test('OpenRouter authenticates and selects models for roast, ideas and chat', as
 test('settings restores saved OpenRouter model choice and switches models without replacing the key', async () => {
   const html = fs.readFileSync(new URL('../src/renderer/settings.html', import.meta.url), 'utf8');
   assert.match(html, /<option value="openrouter-gemini">OpenRouter — Gemini 3\.5 Flash Lite \(recommended\)<\/option>/);
+  assert.match(html, /<option value="openrouter-gemini37">OpenRouter — Gemini 3\.7 Flash<\/option>/);
   assert.match(html, /<option value="openrouter-union">OpenRouter — Union Alpha<\/option>/);
   const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map((m) => [m[1], {value: '', textContent: ''}]));
   let config = {provider: 'openrouter', model: 'google/gemini-3.5-flash-lite', apiKey: 'fixture-key', breakMinutes: 180, breakDurationMinutes: 30};
@@ -47,7 +48,7 @@ test('settings restores saved OpenRouter model choice and switches models withou
   elements.provider.value = 'openrouter';
   await elements.save.onclick();
   assert.equal(elements.provider.value, 'openrouter');
-  for (const [choice, model] of [['openrouter-gemini', 'google/gemini-3.5-flash-lite'], ['openrouter', 'deepseek/deepseek-v4.1-flash'], ['openrouter-union', 'stealth/union-alpha']]) {
+  for (const [choice, model] of [['openrouter-gemini', 'google/gemini-3.5-flash-lite'], ['openrouter-gemini37', 'google/gemini-3.7-flash'], ['openrouter', 'deepseek/deepseek-v4.1-flash'], ['openrouter-union', 'stealth/union-alpha']]) {
     elements.provider.value = choice;
     await elements.save.onclick();
     assert.equal(config.provider, 'openrouter');

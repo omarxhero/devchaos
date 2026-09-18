@@ -32,6 +32,7 @@
     <option value="gemini">Gemini Flash</option>
     <option value="deepseek">DeepSeek (direct API)</option>
     <option value="openrouter-gemini">OpenRouter — Gemini 3.5 Flash Lite (recommended)</option>
+    <option value="openrouter-gemini37">OpenRouter — Gemini 3.7 Flash</option>
     <option value="openrouter">OpenRouter — DeepSeek V4.1 Flash</option>
     <option value="openrouter-union">OpenRouter — Union Alpha</option>
   </select>
@@ -69,7 +70,8 @@
     }
     window.devchaos.onConfigChanged?.(showKeyStatus);
     window.devchaos.getConfig().then((c) => {
-      $("provider").value = c.provider === "openrouter" && c.model === "google/gemini-3.5-flash-lite"
+      $("provider").value = c.provider === "openrouter" && c.model === "google/gemini-3.7-flash"
+        ? "openrouter-gemini37" : c.provider === "openrouter" && c.model === "google/gemini-3.5-flash-lite"
         ? "openrouter-gemini" : c.provider === "openrouter" && c.model === "stealth/union-alpha"
         ? "openrouter-union" : c.provider || "gemini";
       $("voiceOn").value = c.voiceOn === false ? "off" : "on";
@@ -91,6 +93,7 @@
         breakMinutes: Number($("breakHours").value) * 60, breakDurationMinutes: Number($("breakDurationMinutes").value) };
       if (patch.provider.startsWith("openrouter")) {
         patch.model = patch.provider === "openrouter-gemini" ? "google/gemini-3.5-flash-lite"
+          : patch.provider === "openrouter-gemini37" ? "google/gemini-3.7-flash"
           : patch.provider === "openrouter-union" ? "stealth/union-alpha"
           : "deepseek/deepseek-v4.1-flash";
         patch.provider = "openrouter";
