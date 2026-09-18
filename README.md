@@ -1,12 +1,25 @@
 # DevChaos — The 7 Dwarfs of Prompt Engineering
 
-Pixel dwarfs live on your screen, hear what you type to your AI, grade your prompts,
+Pixel dwarfs live on your screen, react to detected IDE prompts when listening is enabled,
 roast your prompts in written Lebanese Arabizi with game-gibberish audio — and a real gravitational-lens black hole eats your screen when
 it's time to rest.
 
 Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun · Demo).
 
 ![tests](https://github.com/omarxhero/devchaos/actions/workflows/ci.yml/badge.svg)
+
+## Meet the dwarfs
+
+| Doc | Grumpy | Happy | Sleepy | Sneezy | Bashful | Dopey |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| <img src="assets/sprites/processed/doc.png" alt="Doc dwarf" height="120"> | <img src="assets/sprites/processed/grumpy.png" alt="Grumpy dwarf" height="120"> | <img src="assets/sprites/processed/happy.png" alt="Happy dwarf" height="120"> | <img src="assets/sprites/processed/sleepy.png" alt="Sleepy dwarf" height="120"> | <img src="assets/sprites/processed/sneezy.png" alt="Sneezy dwarf" height="120"> | <img src="assets/sprites/processed/bashful.png" alt="Bashful dwarf" height="120"> | <img src="assets/sprites/processed/dopey.png" alt="Dopey dwarf" height="120"> |
+
+## Black-hole inspiration
+
+![Original ghostty-blackhole effect demo](docs/media/demo.gif)
+
+*Original effect demo from [s13k/ghostty-blackhole](https://github.com/s13k/ghostty-blackhole),
+shared under the MIT license. This is the upstream demo, not a recording of DevChaos.*
 
 ## What it does
 
@@ -23,7 +36,7 @@ Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun 
   chats). Type once — the dwarf reacts automatically. Code lines, URLs and terminal
   commands are filtered; Shift+Enter stays inside the message. Opt-in with a visible
   indicator. Accepted prompts enter local session history; see the privacy notes below.
-- **The black hole.** When your work timer expires (25 minutes on a fresh profile), a
+- **The black hole.** When your work timer expires (3 hours on a fresh profile, with a 30-minute break), a
   gravitational-lens shader over a capture of your real screen spawns at a random spot,
   grows, tumbles in 3D, devours the screen, then recedes while you rest.
 - **Roastometer** — slide between WHOLESOME and SAVAGE to set the next roast's intensity.
@@ -47,7 +60,7 @@ Controls:
 | --- | --- |
 | Toggle 🎧 IDE listening | the `🎧 IDE` chip (top-right) or **Ctrl+Alt+L** |
 | Summon the black hole | the `☠` chip (top-right) |
-| Switch dwarf | hat buttons (bottom-right) |
+| Switch dwarf | colored dwarf chip in the dialogue header (cycles through all seven) |
 | Roastometer | slider inside the dialogue panel |
 | Quit | **Ctrl+Alt+Q** or tray menu |
 
@@ -56,7 +69,7 @@ API keys are pasted into the app's own settings — never into the repo.
 
 ## Demo mode
 
-`npm run demo` — fast timings (8s hole growth) for rehearsals. The tray menu also has a
+`npm run demo` — fast timings (10s hole growth + 10s recession) for rehearsals. The tray menu also has a
 demo toggle and "Summon black hole".
 
 ## Architecture
@@ -64,11 +77,11 @@ demo toggle and "Summon black hole".
 ```
 src/main/       Electron main: overlay + break windows, tray, IPC, IDE listener host,
                 gates (IDE window match + natural-language filter), config/session
-src/renderer/   overlay UI (dwarf engine, dialogue panel, hats, hole canvas), break window,
+src/renderer/   overlay UI (dwarf engine, dialogue panel, selector, hole canvas), break window,
                 hole.js — the overlay-native black hole engine (transparent WebGL2 +
                 alpha mask so the lens floats over your real work)
 src/brain/      scorer.js (deterministic <100ms), personalities, canned roasts + Lebanese
-                lines, memory/mood, LLM adapter (Gemini / DeepSeek, 12s timeout → canned)
+                lines, memory/mood, LLM adapter (Gemini / DeepSeek / OpenRouter; bounded fallback)
 src/audio/      blip-voice synth (per-dwarf waveforms), jsfxr SFX presets
 src/shaders/    blackhole port (geodesic-traced, live disk inclination/roll uniforms)
 tools/          art pipeline (cutout/classify), ide-listener.ps1 (keyboard hook),
@@ -79,13 +92,13 @@ tests/          node:test suites (scorer calibration, banks, memory, gates)
 IDE path: `original IDE prompt → scorer → score card, mood, memory, triggers → roast + Doc refactor`.
 Chat path: `manual message + bounded per-dwarf chat history → conversational reply`.
 Routing depends on where the input came from, not what its words look like.
-**DOC, HELP ME** remains an explicit request for English rewrites of the last graded
-IDE prompt; chatting does not replace that target. The Roastometer controls IDE roasts.
+IDE grading may include an English rewrite of the original prompt. There is no
+DOC, HELP ME button. The Roastometer controls IDE roasts, not ordinary chat.
 
 **Offline-first grading:** rule scorer + canned roasts remain local. Normal chat has
 simple local greetings and acknowledgements; other questions show an honest offline
 notice rather than a roast or an invented answer. Full conversation needs the selected
-Gemini or DeepSeek provider. Chat replies appear immediately after the provider returns,
+Gemini, DeepSeek direct, or OpenRouter provider. Chat replies appear immediately after the provider returns,
 without waiting for the panel's roast typewriter animation.
 
 **Dialogue:** the main overlay uses Lebanese Arabizi for dwarf replies, including
@@ -95,6 +108,23 @@ offline templates preserve the original input and append English guidance. Audio
 still game-gibberish, not spoken Arabic. Native-speaker taste approval is pending;
 see [samples and verification limits](docs/LEBANESE_TASTE_CHECK.md). The legacy separate
 break-window fallback retains its old English text.
+
+## Providers and connection checks
+
+Settings offers Gemini Flash, DeepSeek direct, and two OpenRouter models:
+DeepSeek V4.1 Flash and Union Alpha (`stealth/union-alpha`). Selection is explicit:
+there is no automatic provider failover. Switching OpenRouter models keeps the saved
+OpenRouter key; switching providers requires that provider's key. Save before testing.
+
+**TEST ROAST tests one roast using saved settings.** Its success is not a persistent
+online indicator and does not test the different chat request. Requests have a 30-second
+full-response deadline; Union Alpha chat gets 45 seconds. Receiving HTTP headers does
+not mean the response body has finished. A slow body can still time out.
+
+If chat reports offline, read the reason (quota, key, model, timeout, network, or response).
+The saved key is not erased by a failed request. The password field stays empty for
+privacy. Provider availability is not guaranteed; local grading and canned roasts stay
+available. Inputs are processed sequentially, so queued chat can wait behind IDE requests.
 
 ## Tests
 
