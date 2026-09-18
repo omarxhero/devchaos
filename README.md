@@ -110,8 +110,9 @@ break-window fallback retains its old English text.
 
 ## Providers and connection checks
 
-Settings offers Gemini Flash, DeepSeek direct, and two OpenRouter models:
-DeepSeek V4.1 Flash and Union Alpha (`stealth/union-alpha`). Selection is explicit:
+Settings offers Gemini Flash, DeepSeek direct, and three OpenRouter models:
+Gemini 3.5 Flash Lite (recommended), DeepSeek V4.1 Flash and Union Alpha
+(`stealth/union-alpha`). Selection is explicit:
 there is no automatic provider failover. Switching OpenRouter models keeps the saved
 OpenRouter key; switching providers requires that provider's key. Save before testing.
 

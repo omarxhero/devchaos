@@ -31,6 +31,7 @@
   <select id="provider">
     <option value="gemini">Gemini Flash</option>
     <option value="deepseek">DeepSeek (direct API)</option>
+    <option value="openrouter-gemini">OpenRouter — Gemini 3.5 Flash Lite (recommended)</option>
     <option value="openrouter">OpenRouter — DeepSeek V4.1 Flash</option>
     <option value="openrouter-union">OpenRouter — Union Alpha</option>
   </select>
@@ -68,7 +69,8 @@
     }
     window.devchaos.onConfigChanged?.(showKeyStatus);
     window.devchaos.getConfig().then((c) => {
-      $("provider").value = c.provider === "openrouter" && c.model === "stealth/union-alpha"
+      $("provider").value = c.provider === "openrouter" && c.model === "google/gemini-3.5-flash-lite"
+        ? "openrouter-gemini" : c.provider === "openrouter" && c.model === "stealth/union-alpha"
         ? "openrouter-union" : c.provider || "gemini";
       $("voiceOn").value = c.voiceOn === false ? "off" : "on";
       $("volume").value = typeof c.volume === "number" ? c.volume : 0.7;
@@ -87,8 +89,10 @@
       setBusy(true);
       const patch = { provider: $("provider").value, voiceOn: $("voiceOn").value === "on", volume: Number($("volume").value),
         breakMinutes: Number($("breakHours").value) * 60, breakDurationMinutes: Number($("breakDurationMinutes").value) };
-      if (patch.provider === "openrouter" || patch.provider === "openrouter-union") {
-        patch.model = patch.provider === "openrouter-union" ? "stealth/union-alpha" : "deepseek/deepseek-v4.1-flash";
+      if (patch.provider.startsWith("openrouter")) {
+        patch.model = patch.provider === "openrouter-gemini" ? "google/gemini-3.5-flash-lite"
+          : patch.provider === "openrouter-union" ? "stealth/union-alpha"
+          : "deepseek/deepseek-v4.1-flash";
         patch.provider = "openrouter";
       }
       const key = $("apiKey").value.trim();
