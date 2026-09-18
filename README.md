@@ -14,12 +14,10 @@ Built for the **Zaka LB FunChallenge 2026** (Functionality · Creativity · Fun 
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | <img src="assets/sprites/processed/doc.png" alt="Doc dwarf" height="120"> | <img src="assets/sprites/processed/grumpy.png" alt="Grumpy dwarf" height="120"> | <img src="assets/sprites/processed/happy.png" alt="Happy dwarf" height="120"> | <img src="assets/sprites/processed/sleepy.png" alt="Sleepy dwarf" height="120"> | <img src="assets/sprites/processed/sneezy.png" alt="Sneezy dwarf" height="120"> | <img src="assets/sprites/processed/bashful.png" alt="Bashful dwarf" height="120"> | <img src="assets/sprites/processed/dopey.png" alt="Dopey dwarf" height="120"> |
 
-## Black-hole inspiration
-
+## Black-hole  
 ![Original ghostty-blackhole effect demo](docs/media/demo.gif)
 
-*Original effect demo from [s13k/ghostty-blackhole](https://github.com/s13k/ghostty-blackhole),
-shared under the MIT license. This is the upstream demo, not a recording of DevChaos.*
+
 
 ## What it does
 
