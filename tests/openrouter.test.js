@@ -17,7 +17,7 @@ test('OpenRouter authenticates and selects models for roast, ideas and chat', as
     })}}]})};
   });
   const payload = {prompt: 'fix it', scored: {score: 2, label: 'VAGUE', issues: []}, dwarf: get('grumpy'), roastometer: 80};
-  for (const model of [undefined, 'deepseek/deepseek-v4-flash', 'stealth/union-alpha']) {
+  for (const model of [undefined, 'deepseek/deepseek-v4-flash', 'google/gemini-3.5-flash-lite', 'stealth/union-alpha']) {
     const config = {provider: 'openrouter', apiKey: 'test-only', model};
     assert.equal((await roast(config, payload))?.source, 'llm');
     assert.equal((await ideas(config, payload))?.length, 3);
@@ -31,19 +31,23 @@ test('OpenRouter authenticates and selects models for roast, ideas and chat', as
   }
 });
 
-test('settings restores Union Alpha and switches OpenRouter models without replacing the key', async () => {
+test('settings restores saved OpenRouter model choice and switches models without replacing the key', async () => {
   const html = fs.readFileSync(new URL('../src/renderer/settings.html', import.meta.url), 'utf8');
+  assert.match(html, /<option value="openrouter-gemini">OpenRouter — Gemini 3\.5 Flash Lite \(recommended\)<\/option>/);
   assert.match(html, /<option value="openrouter-union">OpenRouter — Union Alpha<\/option>/);
   const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map((m) => [m[1], {value: '', textContent: ''}]));
-  let config = {provider: 'openrouter', model: 'stealth/union-alpha', apiKey: 'fixture-key', breakMinutes: 180, breakDurationMinutes: 30};
+  let config = {provider: 'openrouter', model: 'google/gemini-3.5-flash-lite', apiKey: 'fixture-key', breakMinutes: 180, breakDurationMinutes: 30};
   const context = {document: {getElementById: id => elements[id]}, window: {devchaos: {
     getConfig: async () => ({...config, apiKey: 'SET'}), onConfigChanged() {},
     setConfig: async patch => { config = configPatch(config, patch); return {ok: true}; },
   }}};
   vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(elements.provider.value, 'openrouter-union');
-  for (const [choice, model] of [['openrouter', 'deepseek/deepseek-v4.1-flash'], ['openrouter-union', 'stealth/union-alpha']]) {
+  assert.equal(elements.provider.value, 'openrouter-gemini');
+  elements.provider.value = 'openrouter';
+  await elements.save.onclick();
+  assert.equal(elements.provider.value, 'openrouter');
+  for (const [choice, model] of [['openrouter-gemini', 'google/gemini-3.5-flash-lite'], ['openrouter', 'deepseek/deepseek-v4.1-flash'], ['openrouter-union', 'stealth/union-alpha']]) {
     elements.provider.value = choice;
     await elements.save.onclick();
     assert.equal(config.provider, 'openrouter');
